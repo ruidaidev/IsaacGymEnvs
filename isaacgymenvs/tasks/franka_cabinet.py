@@ -32,7 +32,7 @@ import torch
 
 from isaacgym import gymutil, gymtorch, gymapi
 from isaacgymenvs.utils.torch_jit_utils import to_torch, get_axis_params, tensor_clamp, \
-    tf_vector, tf_combine
+    tf_vector, tf_combine, quat_apply
 from .base.vec_task import VecTask
 
 

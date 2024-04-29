@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<robot name="simple_robot">
+  <!-- Base Link -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="1 1 0.1"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="1 1 0.1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Pelvis Link -->
+  <!-- <link name="pelvis">
+    <visual>
+      <geometry>
+        <box size="0.2 0.2 0.1"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.2 0.2 0.1"/>
+      </geometry>
+    </collision>
+  </link> -->
+  <link name="pelvis">
+    <inertial>
+      <origin xyz="0.010310423 0.0034907373000000004 0.057233845000000005"/>
+      <mass value="18.845851"/>
+      <inertia ixx="0.8762753299999999" ixy="0.022209997" ixz="-0.0061989843" iyy="1.6329654999999998" iyz="0.004551487199999999" izz="1.9611303"/>
+    </inertial>
+    <visual>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 0 0.0"/>
+      <geometry>
+        <mesh filename="package://centauro_urdf/meshes/v2/pelvis.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 0 0.0"/>
+      <geometry>
+        <mesh filename="package://centauro_urdf/meshes/simple/pelvis.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Joint connecting base_link to pelvis -->
+  <!-- First joint for roll -->
+<joint name="base_to_pelvis_roll_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="intermediate_link"/>
+    <origin xyz="0 0 0.5" rpy="0 0 0"/>  <!-- Adjust position as needed -->
+    <axis xyz="1 0 0"/>  <!-- Roll around x-axis -->
+    <limit lower="-1.57" upper="1.57" effort="0" velocity="0.5"/>
+</joint>
+
+<!-- Intermediate link with zero dimensions -->
+<link name="intermediate_link">
+    <visual>
+        <geometry>
+            <sphere radius="0"/>
+        </geometry>
+    </visual>
+    <collision>
+        <geometry>
+            <sphere radius="0"/>
+        </geometry>
+    </collision>
+</link>
+
+<!-- Second joint for pitch -->
+<joint name="pelvis_pitch_joint" type="revolute">
+    <parent link="intermediate_link"/>
+    <child link="pelvis"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>  <!-- No offset needed -->
+    <axis xyz="0 1 0"/>  <!-- Pitch around y-axis -->
+    <limit lower="-1.57" upper="1.57" effort="0" velocity="0.5"/>
+</joint>
+
+
+</robot>
+
