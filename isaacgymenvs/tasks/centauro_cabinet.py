@@ -77,8 +77,8 @@ class CentauroCabinet(VecTask):
         self.prop_length = 0.08
         self.prop_spacing = 0.09
 
-        num_obs = 21
-        num_acts = 8
+        num_obs = 31
+        num_acts = 13
 
         self.cfg["env"]["numObservations"] = num_obs
         self.cfg["env"]["numActions"] = num_acts
@@ -95,7 +95,7 @@ class CentauroCabinet(VecTask):
         self.gym.refresh_rigid_body_state_tensor(self.sim)
 
         # create some wrapper tensors for different slices
-        self.centauro_default_dof_pos = to_torch([0.0, 0.5, -0.3, -0.3, -2.2, 0.0, -0.8, 0.0], device=self.device)
+        self.centauro_default_dof_pos = to_torch([0.0, 0, 1, 0, 0, 0, 0.0, 0.5, -0.3, -0.3, -2.2, 0.0, -0.8], device=self.device)
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
         self.centauro_dof_state = self.dof_state.view(self.num_envs, -1, 2)[:, :self.num_centauro_dofs]
         self.centauro_dof_pos = self.centauro_dof_state[..., 0]
@@ -147,7 +147,7 @@ class CentauroCabinet(VecTask):
         upper = gymapi.Vec3(spacing, spacing, spacing)
 
         asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets")
-        centauro_asset_file = "urdf/centauro_urdf/urdf/centauro_devel_rhand.urdf"
+        centauro_asset_file = "urdf/centauro_urdf/urdf/centauro_sliding.urdf"
         cabinet_asset_file = "urdf/sektion_cabinet_model/urdf/sektion_cabinet_2.urdf"
 
         if "asset" in self.cfg["env"]:
@@ -174,8 +174,8 @@ class CentauroCabinet(VecTask):
         asset_options.armature = 0.005
         cabinet_asset = self.gym.load_asset(self.sim, asset_root, cabinet_asset_file, asset_options)
 
-        centauro_dof_stiffness = to_torch([400, 400, 400, 400, 400, 400, 400, 1.0e6], dtype=torch.float, device=self.device)
-        centauro_dof_damping = to_torch([80, 80, 80, 80, 80, 80, 80, 1.0e2], dtype=torch.float, device=self.device)
+        centauro_dof_stiffness = to_torch([400, 400, 400, 400, 400, 400, 400, 1.0e6, 400, 400, 400, 400, 400], dtype=torch.float, device=self.device)
+        centauro_dof_damping = to_torch([80, 80, 80, 80, 80, 80, 80, 1.0e2, 80, 80, 80, 80, 80], dtype=torch.float, device=self.device)
 
         self.num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
         self.num_centauro_dofs = self.gym.get_asset_dof_count(centauro_asset)
