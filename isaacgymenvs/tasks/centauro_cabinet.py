@@ -95,7 +95,7 @@ class CentauroCabinet(VecTask):
         self.gym.refresh_rigid_body_state_tensor(self.sim)
 
         # create some wrapper tensors for different slices
-        self.centauro_default_dof_pos = to_torch([0.0, 0, 1, 0, 0, 0, 0.0, 0.5, -0.3, -0.3, -2.2, 0.0, -0.8], device=self.device)
+        self.centauro_default_dof_pos = to_torch([0.0, 0, 0, 0, 0, 0, 0.0, 0.5, -0.3, -0.3, -2.2, 0.0, -0.8], device=self.device)
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
         self.centauro_dof_state = self.dof_state.view(self.num_envs, -1, 2)[:, :self.num_centauro_dofs]
         self.centauro_dof_pos = self.centauro_dof_state[..., 0]
@@ -220,7 +220,7 @@ class CentauroCabinet(VecTask):
         prop_asset = self.gym.create_box(self.sim, self.prop_width, self.prop_height, self.prop_width, box_opts)
 
         centauro_start_pose = gymapi.Transform()
-        centauro_start_pose.p = gymapi.Vec3(1.4, 0.0, 0.0)
+        centauro_start_pose.p = gymapi.Vec3(1.4, 0.0, 0.5)
         centauro_start_pose.r = gymapi.Quat(0.0, 0.0, 1.0, 0.0)
 
         cabinet_start_pose = gymapi.Transform()

@@ -106,7 +106,7 @@
     <origin xyz="0.2 0.0 0.256"/>
     <child link="torso_2"/>
     <axis xyz="0 0 1"/>
-    <limit effort="147" lower="-2.618" upper="2.618" velocity="5.7"/>
+    <limit effort="147" lower="-0.5" upper="0.5" velocity="5.7"/>
     <!-- TODO -->
   </joint>
   <!-- /torso joints -->
@@ -582,7 +582,7 @@
     <origin xyz="0 0 0"/>
     <axis xyz="1 0 0"/> <!-- Movement allowed along the x-axis -->
     <!-- Optionally, add limits to the joint's motion -->
-    <limit lower="-5" upper="5" effort="100" velocity="1"/>
+    <limit lower="-0.5" upper="0.5" effort="100" velocity="1"/>
   </joint>
 
   <!-- Define a link that connects to the second joint -->
@@ -596,7 +596,7 @@
     <child link="y_slider_link"/>
     <origin xyz="0 0 0"/>
     <axis xyz="0 1 0"/> <!-- Movement allowed along the y-axis -->
-    <limit lower="-5" upper="5" effort="100" velocity="1"/>
+    <limit lower="-0.5" upper="0.5" effort="100" velocity="1"/>
   </joint>
 
   <link name="y_slider_link">
@@ -609,7 +609,7 @@
     <child link="base_link"/>
     <origin xyz="0 0 0"/>
     <axis xyz="0 0 1"/> <!-- Movement allowed along the y-axis -->
-    <limit lower="0" upper="1" effort="100" velocity="1"/>
+    <limit lower="0" upper="0.5" effort="100" velocity="1"/>
   </joint>
 
 </robot>
