@@ -142,6 +142,7 @@ def launch_rlg_hydra(cfg: DictConfig):
                 step_trigger=lambda step: step % cfg.capture_video_freq == 0,
                 video_length=cfg.capture_video_len,
             )
+        # action_space = envs.action_space
         return envs
 
     env_configurations.register('rlgpu', {

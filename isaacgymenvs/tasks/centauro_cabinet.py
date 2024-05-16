@@ -35,6 +35,7 @@
 import numpy as np
 import os
 import torch
+from gym import spaces
 
 from isaacgym import gymutil, gymtorch, gymapi
 from isaacgymenvs.utils.torch_jit_utils import to_torch, get_axis_params, tensor_clamp, \
@@ -77,25 +78,40 @@ class CentauroCabinet(VecTask):
         self.prop_length = 0.08
         self.prop_spacing = 0.09
 
-        num_obs = 31
-        num_acts = 13
+        num_obs = 47
+        num_acts = 21
 
         self.cfg["env"]["numObservations"] = num_obs
         self.cfg["env"]["numActions"] = num_acts
 
-        super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
+        low = np.ones(num_acts) * -1.
+        low[6:12] = np.zeros(6)
+        low[19:21] = np.zeros(2)
+        high = np.ones(num_acts) * 1.
+        high[6:12] = np.zeros(6)
+        high[19:21] = np.zeros(2)
+        self.act_space = spaces.Box(low, high)
 
+        super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, graphics_device_id=graphics_device_id, headless=headless, virtual_screen_capture=virtual_screen_capture, force_render=force_render)
+        
         # get gym GPU state tensors
         actor_root_state_tensor = self.gym.acquire_actor_root_state_tensor(self.sim)
         dof_state_tensor = self.gym.acquire_dof_state_tensor(self.sim)
         rigid_body_tensor = self.gym.acquire_rigid_body_state_tensor(self.sim)
+        _net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
+
 
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_dof_state_tensor(self.sim)
         self.gym.refresh_rigid_body_state_tensor(self.sim)
+        self.gym.refresh_net_contact_force_tensor(self.sim)
 
         # create some wrapper tensors for different slices
-        self.centauro_default_dof_pos = to_torch([0.0, 0, 0, 0, 0, 0, 0.0, 0.5, -0.3, -0.3, -2.2, 0.0, -0.8], device=self.device)
+        self.centauro_default_dof_pos = to_torch([0.0, 0.0, 0.0, 
+                                                  0.0, 0.0, 0.0,
+                                                  0.5, 0.3, 0.3, -2.2, 0.0, -0.8, 
+                                                  0.5, -0.3, -0.3, -2.2, 0.0, -0.8, 0.0,
+                                                  0.0, 0.0], device=self.device)
         self.dof_state = gymtorch.wrap_tensor(dof_state_tensor)
         self.centauro_dof_state = self.dof_state.view(self.num_envs, -1, 2)[:, :self.num_centauro_dofs]
         self.centauro_dof_pos = self.centauro_dof_state[..., 0]
@@ -108,6 +124,7 @@ class CentauroCabinet(VecTask):
         self.num_bodies = self.rigid_body_states.shape[1]
 
         self.root_state_tensor = gymtorch.wrap_tensor(actor_root_state_tensor).view(self.num_envs, -1, 13)
+        self.net_cf = gymtorch.wrap_tensor(_net_cf).view(self.num_envs, -1, 3)
 
         if self.num_props > 0:
             self.prop_states = self.root_state_tensor[:, 2:]
@@ -118,7 +135,19 @@ class CentauroCabinet(VecTask):
         self.global_indices = torch.arange(self.num_envs * (2 + self.num_props), dtype=torch.int32, device=self.device).view(self.num_envs, -1)
 
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
-
+    
+    @property
+    def action_space(self):
+        """Get the environment's action space."""
+        low = np.ones(self.num_actions) * -1.
+        low[6:12] = np.zeros(6)
+        low[19:21] = np.zeros(2)
+        high = np.ones(self.num_actions) * 1.
+        high[6:12] = np.zeros(6)
+        high[19:21] = np.zeros(2)
+        self.act_space = spaces.Box(low, high)
+        return self.act_space
+    
     def create_sim(self):
         self.sim_params.up_axis = gymapi.UP_AXIS_Z
         self.sim_params.gravity.x = 0
@@ -147,7 +176,7 @@ class CentauroCabinet(VecTask):
         upper = gymapi.Vec3(spacing, spacing, spacing)
 
         asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets")
-        centauro_asset_file = "urdf/centauro_urdf/urdf/centauro_sliding.urdf"
+        centauro_asset_file = "urdf/centauro_urdf/urdf/centauro_sliding_upperbody.urdf"
         cabinet_asset_file = "urdf/sektion_cabinet_model/urdf/sektion_cabinet_2.urdf"
 
         if "asset" in self.cfg["env"]:
@@ -160,7 +189,7 @@ class CentauroCabinet(VecTask):
         # asset_options.flip_visual_attachments = True
         asset_options.fix_base_link = True
         asset_options.collapse_fixed_joints = False
-        asset_options.disable_gravity = True
+        asset_options.disable_gravity = False
         asset_options.thickness = 0.001
         asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
         asset_options.use_mesh_materials = True
@@ -174,8 +203,10 @@ class CentauroCabinet(VecTask):
         asset_options.armature = 0.005
         cabinet_asset = self.gym.load_asset(self.sim, asset_root, cabinet_asset_file, asset_options)
 
-        centauro_dof_stiffness = to_torch([400, 400, 400, 400, 400, 400, 400, 1.0e6, 400, 400, 400, 400, 400], dtype=torch.float, device=self.device)
-        centauro_dof_damping = to_torch([80, 80, 80, 80, 80, 80, 80, 1.0e2, 80, 80, 80, 80, 80], dtype=torch.float, device=self.device)
+        centauro_dof_stiffness = to_torch([10000, 10000, 10000, 10000, 10000, 400, 400, 400, 400, 400, 400, 400, 400, 
+                                           400, 400, 400, 400, 400, 1e6, 400, 400], dtype=torch.float, device=self.device)
+        centauro_dof_damping = to_torch([80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80,
+                                         80, 80, 80, 80, 80, 1e2, 80, 80], dtype=torch.float, device=self.device)
 
         self.num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
         self.num_centauro_dofs = self.gym.get_asset_dof_count(centauro_asset)
@@ -206,8 +237,8 @@ class CentauroCabinet(VecTask):
         self.centauro_dof_lower_limits = to_torch(self.centauro_dof_lower_limits, device=self.device)
         self.centauro_dof_upper_limits = to_torch(self.centauro_dof_upper_limits, device=self.device)
         self.centauro_dof_speed_scales = torch.ones_like(self.centauro_dof_lower_limits)
-        self.centauro_dof_speed_scales[[7]] = 0.1
-        centauro_dof_props['effort'][7] = 200
+        # self.centauro_dof_speed_scales[[7]] = 0.1
+        # centauro_dof_props['effort'][3] = 20000
 
         # set cabinet dof properties
         cabinet_dof_props = self.gym.get_asset_dof_properties(cabinet_asset)
@@ -251,7 +282,7 @@ class CentauroCabinet(VecTask):
             if self.aggregate_mode >= 3:
                 self.gym.begin_aggregate(env_ptr, max_agg_bodies, max_agg_shapes, True)
 
-            centauro_actor = self.gym.create_actor(env_ptr, centauro_asset, centauro_start_pose, "centauro", i, 1, 0)
+            centauro_actor = self.gym.create_actor(env_ptr, centauro_asset, centauro_start_pose, "centauro", i, 0, 0)
             self.gym.set_actor_dof_properties(env_ptr, centauro_actor, centauro_dof_props)
 
             if self.aggregate_mode == 2:
@@ -263,7 +294,7 @@ class CentauroCabinet(VecTask):
             dy = np.random.rand() - 0.5
             cabinet_pose.p.y += self.start_position_noise * dy
             cabinet_pose.p.z += self.start_position_noise * dz
-            cabinet_actor = self.gym.create_actor(env_ptr, cabinet_asset, cabinet_pose, "cabinet", i, 2, 0)
+            cabinet_actor = self.gym.create_actor(env_ptr, cabinet_asset, cabinet_pose, "cabinet", i, 0, 0)
             self.gym.set_actor_dof_properties(env_ptr, cabinet_actor, cabinet_dof_props)
 
             if self.aggregate_mode == 1:
@@ -377,6 +408,11 @@ class CentauroCabinet(VecTask):
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_dof_state_tensor(self.sim)
         self.gym.refresh_rigid_body_state_tensor(self.sim)
+        self.gym.refresh_net_contact_force_tensor(self.sim)
+
+        # _net_cf = self.gym.acquire_net_contact_force_tensor(self.sim)
+        # self.net_cf = gymtorch.wrap_tensor(_net_cf).view(self.num_envs, -1, 3)
+        # print("net_cf:", self.net_cf[-1])
 
         hand_pos = self.rigid_body_states[:, self.hand_handle][:, 0:3]
         hand_rot = self.rigid_body_states[:, self.hand_handle][:, 3:7]
@@ -440,8 +476,14 @@ class CentauroCabinet(VecTask):
         self.reset_buf[env_ids] = 0
 
     def pre_physics_step(self, actions):
+        print("actions:", actions[0])
         self.actions = actions.clone().to(self.device)
         targets = self.centauro_dof_targets[:, :self.num_centauro_dofs] + self.centauro_dof_speed_scales * self.dt * self.actions * self.action_scale
+        # targets = to_torch([0.5, 0.0, 0.0, 
+        #                     0.0, 0.0, 0.0,
+        #                     0.5, 0.3, 0.3, -2.2, 0.0, -0.8, 
+        #                     0.5, -0.3, -0.3, -2.2, 0.0, -0.8, 0.0,
+        #                     0.0, 0.0], device=self.device).repeat((self.num_envs, 1))
         self.centauro_dof_targets[:, :self.num_centauro_dofs] = tensor_clamp(
             targets, self.centauro_dof_lower_limits, self.centauro_dof_upper_limits)
         env_ids_int32 = torch.arange(self.num_envs, dtype=torch.int32, device=self.device)
@@ -456,6 +498,7 @@ class CentauroCabinet(VecTask):
             self.reset_idx(env_ids)
 
         self.compute_observations()
+        print("obs:", self.obs_buf[0])
         self.compute_reward(self.actions)
 
         # debug viz

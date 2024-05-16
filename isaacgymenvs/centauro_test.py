@@ -73,7 +73,7 @@ up_axis_idx = 2
 asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../assets")
 # asset_file = "urdf/anymal_c/urdf/anymal.urdf"
 # asset_file = "urdf/franka_description/robots/franka_panda.urdf"
-assert_file = "urdf/centauro_urdf/urdf/centauro_sliding.urdf"
+asset_file = "urdf/centauro_urdf/urdf/centauro_sliding_upperbody.urdf"
 cabinet_asset_file = "urdf/sektion_cabinet_model/urdf/sektion_cabinet_2.urdf"
 
 # Load asset with default control type of position for all joints
@@ -81,26 +81,26 @@ asset_options = gymapi.AssetOptions()
 # asset_options.flip_visual_attachments = True
 asset_options.fix_base_link = True
 # asset_options.collapse_fixed_joints = True
-asset_options.disable_gravity = True
+asset_options.disable_gravity = False
 # asset_options.thickness = 0.001
 asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
 # asset_options.use_mesh_materials = True
 
-robot_asset = gym.load_asset(sim, asset_root, assert_file, asset_options)
+robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
 # robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
 # robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
 
 
 # initial root pose for centauro actors
 initial_pose = gymapi.Transform()
-initial_pose.p = gymapi.Vec3(1.2, 0.0, 0.5)
+initial_pose.p = gymapi.Vec3(0.9, 0.0, 0.5)
 initial_pose.r = gymapi.Quat(0.0, 0.0, 1.0, 0.0)
 
 # Create environment
 env0 = gym.create_env(sim, env_lower, env_upper, 1)
 # Create the robot instance
 # pose = gymapi.Transform()
-robot = gym.create_actor(env0, robot_asset, initial_pose, 'robot')
+robot = gym.create_actor(env0, robot_asset, initial_pose, 'robot', 0, 0, 0)
 
 # load cabinet asset
 asset_options.flip_visual_attachments = False
@@ -126,24 +126,31 @@ for i in range(len(props)):
     props["driveMode"][i] = gymapi.DOF_MODE_POS
     props["stiffness"][i] = 5000
     props["damping"][i] = 100.0
+# props["damping"][4] = 1e20
 gym.set_actor_dof_properties(env0, robot, props)
 # Set DOF drive targets
 torso_dof_handle = gym.find_actor_dof_handle(env0, robot, 'torso_yaw')
 gym.set_dof_target_position(env0, torso_dof_handle, 0.0)
-j_arm1_1_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_1')
-gym.set_dof_target_position(env0, j_arm1_1_dof_handle, 0.5)
-j_arm1_2_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_2')
-gym.set_dof_target_position(env0, j_arm1_2_dof_handle, -0.3)
-j_arm1_3_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_3')
-gym.set_dof_target_position(env0, j_arm1_3_dof_handle, -0.3)
-j_arm1_4_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_4')
-gym.set_dof_target_position(env0, j_arm1_4_dof_handle, -2.2)
-j_arm1_5_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_5')
-gym.set_dof_target_position(env0, j_arm1_5_dof_handle, 0.0)
-j_arm1_6_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_6')
-gym.set_dof_target_position(env0, j_arm1_6_dof_handle, -0.8)
+j_arm2_1_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_1')
+gym.set_dof_target_position(env0, j_arm2_1_dof_handle, 0.5)
+j_arm2_2_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_2')
+gym.set_dof_target_position(env0, j_arm2_2_dof_handle, -0.3)
+j_arm2_3_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_3')
+gym.set_dof_target_position(env0, j_arm2_3_dof_handle, -0.3)
+j_arm2_4_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_4')
+gym.set_dof_target_position(env0, j_arm2_4_dof_handle, -2.2)
+j_arm2_5_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_5')
+gym.set_dof_target_position(env0, j_arm2_5_dof_handle, 0.0)
+j_arm2_6_dof_handle = gym.find_actor_dof_handle(env0, robot, 'j_arm2_6')
+gym.set_dof_target_position(env0, j_arm2_6_dof_handle, -0.8)
 dagana_dof_handle = gym.find_actor_dof_handle(env0, robot, 'dagana_2_claw_joint')
 gym.set_dof_target_position(env0, dagana_dof_handle, 0.0)
+x_slider_handle = gym.find_actor_dof_handle(env0, robot, 'x_slider')
+# gym.set_dof_target_position(env0, x_slider_handle, -0.5)
+# y_slider_handle = gym.find_actor_dof_handle(env0, robot, 'y_slider')
+# gym.set_dof_target_position(env0, y_slider_handle, -0.5)
+pelvis_roll_joint_handle = gym.find_actor_dof_handle(env0, robot, 'pelvis_roll_joint')
+gym.set_dof_target_position(env0, pelvis_roll_joint_handle, 0.2)
 
 # wheel = gym.find_actor_rigid_body_handle(env0, robot, "front_wheel")
 # shape_props = gym.get_actor_rigid_shape_properties(env0, robot)

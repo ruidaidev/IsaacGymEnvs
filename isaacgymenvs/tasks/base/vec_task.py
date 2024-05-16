@@ -110,7 +110,7 @@ class Env(ABC):
         self.num_actions = config["env"]["numActions"]
         self.control_freq_inv = config["env"].get("controlFrequencyInv", 1)
 
-        self.act_space = spaces.Box(np.ones(self.num_actions) * -1., np.ones(self.num_actions) * 1.)
+        # self.act_space = spaces.Box(np.ones(self.num_actions) * -1., np.ones(self.num_actions) * 1.)
 
         self.clip_obs = config["env"].get("clipObservations", np.Inf)
         self.clip_actions = config["env"].get("clipActions", np.Inf)

@@ -117,7 +117,7 @@ env_upper = gymapi.Vec3(spacing, spacing, spacing)
 
 # default franka pose
 pose = gymapi.Transform()
-pose.p = gymapi.Vec3(0, 0, 1)
+pose.p = gymapi.Vec3(0, 0, 0)
 pose.r = gymapi.Quat(0, 0, 0, 1)
 
 print("Creating %d environments" % num_envs)
@@ -133,7 +133,7 @@ for i in range(num_envs):
     envs.append(env)
 
     # Add franka
-    franka_handle = gym.create_actor(env, franka_asset, pose, "franka", i, 1)
+    franka_handle = gym.create_actor(env, franka_asset, pose, "franka", i, 0)
 
     # Set initial DOF states
     gym.set_actor_dof_states(env, franka_handle, default_dof_state, gymapi.STATE_ALL)
@@ -222,7 +222,7 @@ while not gym.query_viewer_has_closed(viewer):
 
     # Set desired hand positions
     if args.pos_control:
-        pos_des[:, 0] = init_pos[:, 0] - 0.1
+        pos_des[:, 0] = init_pos[:, 0] - 0.5
         pos_des[:, 1] = math.sin(itr / 50) * 0.2
         pos_des[:, 2] = init_pos[:, 2] + math.cos(itr / 50) * 0.2
 
