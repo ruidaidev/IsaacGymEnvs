@@ -23,7 +23,7 @@ env:
   dofVelocityScale: 0.1
   distRewardScale: 2.0
   rotRewardScale: 0.5
-  liftRewardScale: 1.5
+  liftRewardScale: 7.5
   aroundHandleRewardScale: 0.25
   openRewardScale: 7.5
   fingerDistRewardScale: 5.0
