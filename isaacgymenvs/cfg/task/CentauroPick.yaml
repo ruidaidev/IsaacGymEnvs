@@ -8,7 +8,7 @@ env:
   numEnvs: ${resolve_default:4096,${...num_envs}}
   envSpacing: 2
   episodeLength: 300
-  enableDebugVis: False
+  enableDebugVis: True
 
   clipObservations: 5.0
   clipActions: 1.0
