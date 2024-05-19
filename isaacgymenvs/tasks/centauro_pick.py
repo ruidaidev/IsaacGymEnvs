@@ -642,16 +642,16 @@ def compute_centauro_reward(
     # regularization on the actions (summed for each environment)
     action_penalty = torch.sum(actions ** 2, dim=-1)
 
-    # rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward - action_penalty_scale * action_penalty
+    rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward - action_penalty_scale * action_penalty
 
-    rewards = dist_reward_scale * dist_reward + rot_reward_scale * rot_reward \
-        + around_handle_reward_scale * around_handle_reward + lift_reward_scale * lift_reward \
-        + finger_dist_reward_scale * finger_dist_reward - action_penalty_scale * action_penalty
+    # rewards = dist_reward_scale * dist_reward + rot_reward_scale * rot_reward \
+    #     + around_handle_reward_scale * around_handle_reward + lift_reward_scale * lift_reward \
+    #     + finger_dist_reward_scale * finger_dist_reward - action_penalty_scale * action_penalty
     
     # bonus for opening drawer properly
     rewards = torch.where(cubeA_height > 0.01, rewards + 0.5, rewards)
-    rewards = torch.where(cubeA_height > 0.2, rewards + around_handle_reward, rewards)
-    rewards = torch.where(cubeA_height > 0.39, rewards + (2.0 * around_handle_reward), rewards)
+    # rewards = torch.where(cubeA_height > 0.2, rewards + around_handle_reward, rewards)
+    # rewards = torch.where(cubeA_height > 0.39, rewards + (2.0 * around_handle_reward), rewards)
 
     reset_buf = torch.where(cubeA_height > 0.39, torch.ones_like(reset_buf), reset_buf)
     reset_buf = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), reset_buf)
