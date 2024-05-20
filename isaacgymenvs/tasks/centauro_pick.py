@@ -116,10 +116,10 @@ class CentauroPick(VecTask):
         self._cubeA_id = None                   # Actor ID corresponding to cubeA for a given env
 
         low = np.ones(num_acts) * -1.
-        low[0:12] = np.zeros(12)
+        low[6:12] = np.zeros(12)
         low[19:21] = np.zeros(2)
         high = np.ones(num_acts) * 1.
-        high[0:12] = np.zeros(12)
+        high[6:12] = np.zeros(12)
         high[19:21] = np.zeros(2)
         self.act_space = spaces.Box(low, high)
 
@@ -168,10 +168,10 @@ class CentauroPick(VecTask):
     def action_space(self):
         """Get the environment's action space."""
         low = np.ones(self.num_actions) * -1.
-        low[0:12] = np.zeros(12)
+        low[6:12] = np.zeros(12)
         low[19:21] = np.zeros(2)
         high = np.ones(self.num_actions) * 1.
-        high[0:12] = np.zeros(12)
+        high[6:12] = np.zeros(12)
         high[19:21] = np.zeros(2)
         self.act_space = spaces.Box(low, high)
         return self.act_space
@@ -644,19 +644,19 @@ def compute_centauro_reward(
 
     # rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward - action_penalty_scale * action_penalty
 
-    rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward \
-            + around_handle_reward_scale * around_handle_reward \
-            + finger_dist_reward_scale * finger_dist_reward \
-            - action_penalty_scale * action_penalty
+    # rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward \
+    #         + around_handle_reward_scale * around_handle_reward \
+    #         + finger_dist_reward_scale * finger_dist_reward \
+    #         - action_penalty_scale * action_penalty
 
-    # rewards = dist_reward_scale * dist_reward + rot_reward_scale * rot_reward \
-    #     + around_handle_reward_scale * around_handle_reward + lift_reward_scale * lift_reward \
-    #     + finger_dist_reward_scale * finger_dist_reward - action_penalty_scale * action_penalty
+    rewards = dist_reward_scale * dist_reward + rot_reward_scale * rot_reward \
+        + around_handle_reward_scale * around_handle_reward + lift_reward_scale * lift_reward \
+        + finger_dist_reward_scale * finger_dist_reward - action_penalty_scale * action_penalty
     
     # bonus for opening drawer properly
     rewards = torch.where(cubeA_height > 0.01, rewards + 0.5, rewards)
-    # rewards = torch.where(cubeA_height > 0.2, rewards + around_handle_reward, rewards)
-    # rewards = torch.where(cubeA_height > 0.39, rewards + (2.0 * around_handle_reward), rewards)
+    rewards = torch.where(cubeA_height > 0.2, rewards + around_handle_reward, rewards)
+    rewards = torch.where(cubeA_height > 0.39, rewards + (2.0 * around_handle_reward), rewards)
 
     reset_buf = torch.where(cubeA_height > 0.39, torch.ones_like(reset_buf), reset_buf)
     reset_buf = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), reset_buf)
