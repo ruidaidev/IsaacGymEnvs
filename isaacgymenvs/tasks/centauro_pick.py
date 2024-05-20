@@ -642,7 +642,9 @@ def compute_centauro_reward(
     # regularization on the actions (summed for each environment)
     action_penalty = torch.sum(actions ** 2, dim=-1)
 
-    rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward - action_penalty_scale * action_penalty
+    # rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward - action_penalty_scale * action_penalty
+
+    rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward + around_handle_reward_scale * around_handle_reward - action_penalty_scale * action_penalty
 
     # rewards = dist_reward_scale * dist_reward + rot_reward_scale * rot_reward \
     #     + around_handle_reward_scale * around_handle_reward + lift_reward_scale * lift_reward \

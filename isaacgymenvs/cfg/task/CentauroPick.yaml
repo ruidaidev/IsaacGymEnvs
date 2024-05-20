@@ -19,12 +19,12 @@ env:
   numProps: 16
   aggregateMode: 3
 
-  actionScale: 0.5
+  actionScale: 7.5
   dofVelocityScale: 0.1
   distRewardScale: 2.0
   rotRewardScale: 0.5
   liftRewardScale: 7.5
-  aroundHandleRewardScale: 0.25
+  aroundHandleRewardScale: 5.0
   openRewardScale: 7.5
   fingerDistRewardScale: 5.0
   actionPenaltyScale: 0.01
