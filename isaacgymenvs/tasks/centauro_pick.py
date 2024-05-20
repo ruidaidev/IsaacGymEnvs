@@ -243,7 +243,7 @@ class CentauroPick(VecTask):
         # Create cubeA asset
         self.cubeA_size = 0.050
         cubeA_opts = gymapi.AssetOptions()
-        cubeA_asset = self.gym.create_box(self.sim, *([self.cubeA_size] * 3), cubeA_opts)
+        cubeA_asset = self.gym.create_box(self.sim, *([self.cubeA_size, 0.2, self.cubeA_size]), cubeA_opts)
         cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
 
         self.num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
@@ -623,15 +623,15 @@ def compute_centauro_reward(
 
     # bonus if right finger is right to the cube handle and left to the lef
     around_handle_reward = torch.zeros_like(rot_reward)
-    around_handle_reward = torch.where(centauro_lfinger_pos[:, 0] > cube_grasp_pos[:, 0],
-                                       torch.where(centauro_rfinger_pos[:, 0] < cube_grasp_pos[:, 0],
+    around_handle_reward = torch.where(centauro_lfinger_pos[:, 0] > (cube_grasp_pos[:, 0]+0.02),
+                                       torch.where(centauro_rfinger_pos[:, 0] < (cube_grasp_pos[:, 0]-0.02),
                                                    around_handle_reward + 0.5, around_handle_reward), around_handle_reward)
     # reward for distance of each finger from the cube
     finger_dist_reward = torch.zeros_like(rot_reward)
-    lfinger_dist = torch.abs(centauro_lfinger_pos[:, 0] - cube_grasp_pos[:, 0])
-    rfinger_dist = torch.abs(centauro_rfinger_pos[:, 0] - cube_grasp_pos[:, 0])
-    finger_dist_reward = torch.where(centauro_lfinger_pos[:, 0] > cube_grasp_pos[:, 0],
-                                     torch.where(centauro_rfinger_pos[:, 0] < cube_grasp_pos[:, 0],
+    lfinger_dist = torch.abs(centauro_lfinger_pos[:, 0] - (cube_grasp_pos[:, 0]+0.02))
+    rfinger_dist = torch.abs(centauro_rfinger_pos[:, 0] - (cube_grasp_pos[:, 0]-0.02))
+    finger_dist_reward = torch.where(centauro_lfinger_pos[:, 0] > (cube_grasp_pos[:, 0]+0.02),
+                                     torch.where(centauro_rfinger_pos[:, 0] < (cube_grasp_pos[:, 0]-0.02),
                                                  (0.04 - lfinger_dist) + (0.04 - rfinger_dist), finger_dist_reward), finger_dist_reward)
 
     # reward for lifting cubeA
