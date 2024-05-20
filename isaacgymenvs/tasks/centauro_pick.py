@@ -623,15 +623,15 @@ def compute_centauro_reward(
 
     # bonus if right finger is right to the cube handle and left to the lef
     around_handle_reward = torch.zeros_like(rot_reward)
-    around_handle_reward = torch.where(centauro_lfinger_pos[:, 0] < cube_grasp_pos[:, 0],
-                                       torch.where(centauro_rfinger_pos[:, 0] > cube_grasp_pos[:, 0],
+    around_handle_reward = torch.where(centauro_lfinger_pos[:, 0] > cube_grasp_pos[:, 0],
+                                       torch.where(centauro_rfinger_pos[:, 0] < cube_grasp_pos[:, 0],
                                                    around_handle_reward + 0.5, around_handle_reward), around_handle_reward)
     # reward for distance of each finger from the cube
     finger_dist_reward = torch.zeros_like(rot_reward)
     lfinger_dist = torch.abs(centauro_lfinger_pos[:, 0] - cube_grasp_pos[:, 0])
     rfinger_dist = torch.abs(centauro_rfinger_pos[:, 0] - cube_grasp_pos[:, 0])
-    finger_dist_reward = torch.where(centauro_lfinger_pos[:, 0] < cube_grasp_pos[:, 0],
-                                     torch.where(centauro_rfinger_pos[:, 0] > cube_grasp_pos[:, 0],
+    finger_dist_reward = torch.where(centauro_lfinger_pos[:, 0] > cube_grasp_pos[:, 0],
+                                     torch.where(centauro_rfinger_pos[:, 0] < cube_grasp_pos[:, 0],
                                                  (0.04 - lfinger_dist) + (0.04 - rfinger_dist), finger_dist_reward), finger_dist_reward)
 
     # reward for lifting cubeA
@@ -644,7 +644,10 @@ def compute_centauro_reward(
 
     # rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward - action_penalty_scale * action_penalty
 
-    rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward + around_handle_reward_scale * around_handle_reward - action_penalty_scale * action_penalty
+    rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward \
+            + around_handle_reward_scale * around_handle_reward \
+            + finger_dist_reward_scale * finger_dist_reward \
+            - action_penalty_scale * action_penalty
 
     # rewards = dist_reward_scale * dist_reward + rot_reward_scale * rot_reward \
     #     + around_handle_reward_scale * around_handle_reward + lift_reward_scale * lift_reward \
