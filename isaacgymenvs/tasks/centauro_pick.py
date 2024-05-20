@@ -116,10 +116,10 @@ class CentauroPick(VecTask):
         self._cubeA_id = None                   # Actor ID corresponding to cubeA for a given env
 
         low = np.ones(num_acts) * -1.
-        low[6:12] = np.zeros(12)
+        low[6:12] = np.zeros(6)
         low[19:21] = np.zeros(2)
         high = np.ones(num_acts) * 1.
-        high[6:12] = np.zeros(12)
+        high[6:12] = np.zeros(6)
         high[19:21] = np.zeros(2)
         self.act_space = spaces.Box(low, high)
 
@@ -168,10 +168,10 @@ class CentauroPick(VecTask):
     def action_space(self):
         """Get the environment's action space."""
         low = np.ones(self.num_actions) * -1.
-        low[6:12] = np.zeros(12)
+        low[6:12] = np.zeros(6)
         low[19:21] = np.zeros(2)
         high = np.ones(self.num_actions) * 1.
-        high[6:12] = np.zeros(12)
+        high[6:12] = np.zeros(6)
         high[19:21] = np.zeros(2)
         self.act_space = spaces.Box(low, high)
         return self.act_space
