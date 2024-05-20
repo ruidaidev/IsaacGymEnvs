@@ -555,14 +555,14 @@ class CentauroPick(VecTask):
             self.gym.refresh_rigid_body_state_tensor(self.sim)
 
             for i in range(self.num_envs):
-                px = (self.centauro_grasp_pos[i] + quat_apply(self.centauro_grasp_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
-                py = (self.centauro_grasp_pos[i] + quat_apply(self.centauro_grasp_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
-                pz = (self.centauro_grasp_pos[i] + quat_apply(self.centauro_grasp_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
+                # px = (self.centauro_grasp_pos[i] + quat_apply(self.centauro_grasp_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
+                # py = (self.centauro_grasp_pos[i] + quat_apply(self.centauro_grasp_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
+                # pz = (self.centauro_grasp_pos[i] + quat_apply(self.centauro_grasp_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
 
-                p0 = self.centauro_grasp_pos[i].cpu().numpy()
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [0.85, 0.1, 0.1])
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0.1, 0.85, 0.1])
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0.1, 0.1, 0.85])
+                # p0 = self.centauro_grasp_pos[i].cpu().numpy()
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [0.85, 0.1, 0.1])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0.1, 0.85, 0.1])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0.1, 0.1, 0.85])
 
                 px = (self.cubeA_pos[i] + quat_apply(self.cubeA_quat[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
                 py = (self.cubeA_pos[i] + quat_apply(self.cubeA_quat[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
@@ -573,23 +573,23 @@ class CentauroPick(VecTask):
                 self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
                 self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
 
-                # px = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
-                # py = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
-                # pz = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
+                px = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
+                py = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
+                pz = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
 
-                # p0 = self.centauro_lfinger_pos[i].cpu().numpy()
-                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [1, 0, 0])
-                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
-                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
+                p0 = self.centauro_lfinger_pos[i].cpu().numpy()
+                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [1, 0, 0])
+                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
+                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
 
-                # px = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
-                # py = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
-                # pz = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
+                px = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
+                py = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
+                pz = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
 
-                # p0 = self.centauro_rfinger_pos[i].cpu().numpy()
-                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [1, 0, 0])
-                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
-                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
+                p0 = self.centauro_rfinger_pos[i].cpu().numpy()
+                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [1, 0, 0])
+                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
+                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
 
 #####################################################################
 ###=========================jit functions=========================###
@@ -607,9 +607,15 @@ def compute_centauro_reward(
 ):
     # distance from hand to the drawer
     d = torch.norm(centauro_grasp_pos - cube_grasp_pos, p=2, dim=-1)
-    dist_reward = 1.0 / (1.0 + d ** 2)
-    dist_reward *= dist_reward
-    dist_reward = torch.where(d <= 0.02, dist_reward * 2, dist_reward)
+    # dist_reward = 1.0 / (1.0 + d ** 2)
+    # dist_reward *= dist_reward
+    # dist_reward = torch.where(d <= 0.02, dist_reward * 2, dist_reward)
+
+    cube_gap_pos = torch.zeros_like(cube_grasp_pos)
+    cube_gap_pos[:, 0] = 0.02
+    d_lf = torch.norm(centauro_lfinger_pos - (cube_grasp_pos+cube_gap_pos), dim=-1)
+    d_rf = torch.norm(centauro_rfinger_pos[:, 0] - (cube_grasp_pos-cube_gap_pos), dim=-1)
+    dist_reward = 1 - torch.tanh(10.0 * (d + d_lf + d_rf) / 3)
 
     axis1 = tf_vector(centauro_grasp_rot, gripper_forward_axis)
     axis2 = tf_vector(cube_grasp_rot, cube_inward_axis)
@@ -644,14 +650,13 @@ def compute_centauro_reward(
 
     # rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward - action_penalty_scale * action_penalty
 
-    # rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward \
-    #         + around_handle_reward_scale * around_handle_reward \
-    #         + finger_dist_reward_scale * finger_dist_reward \
-    #         - action_penalty_scale * action_penalty
+    rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward \
+            + around_handle_reward_scale * around_handle_reward \
+            - action_penalty_scale * action_penalty
 
-    rewards = dist_reward_scale * dist_reward + rot_reward_scale * rot_reward \
-        + around_handle_reward_scale * around_handle_reward + lift_reward_scale * lift_reward \
-        + finger_dist_reward_scale * finger_dist_reward - action_penalty_scale * action_penalty
+    # rewards = dist_reward_scale * dist_reward + rot_reward_scale * rot_reward \
+    #     + around_handle_reward_scale * around_handle_reward + lift_reward_scale * lift_reward \
+    #     + finger_dist_reward_scale * finger_dist_reward - action_penalty_scale * action_penalty
     
     # bonus for opening drawer properly
     rewards = torch.where(cubeA_height > 0.01, rewards + 0.5, rewards)
