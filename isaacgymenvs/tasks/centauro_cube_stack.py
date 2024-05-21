@@ -222,10 +222,10 @@ class CentauroCubeStack(VecTask):
         self.num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
         self.num_centauro_dofs = self.gym.get_asset_dof_count(centauro_asset)
 
-        print("num franka bodies: ", self.num_centauro_bodies)
-        print("num franka dofs: ", self.num_centauro_dofs)
+        print("num centauro bodies: ", self.num_centauro_bodies)
+        print("num centauro dofs: ", self.num_centauro_dofs)
 
-        # set franka dof properties
+        # set centauro dof properties
         centauro_dof_props = self.gym.get_asset_dof_properties(centauro_asset)
         self.centauro_dof_lower_limits = []
         self.centauro_dof_upper_limits = []
@@ -405,7 +405,7 @@ class CentauroCubeStack(VecTask):
 
         # Initialize control
         self._arm_control = self._effort_control[:, 12:18]
-        self._gripper_control = self._effort_control[:, 18]
+        self._gripper_control = self._pos_control[:, 18]
 
         # Initialize indices
         self._global_indices = torch.arange(self.num_envs * 5, dtype=torch.int32,
@@ -615,7 +615,8 @@ class CentauroCubeStack(VecTask):
 
         # Control gripper
         u_fingers = torch.zeros_like(self._gripper_control)
-        u_fingers[:] = torch.where(u_gripper >= 0.0, self._centauro_effort_limits[-3].item(), 0.0)
+        u_fingers[:] = torch.where(u_gripper >= 0.0, self.centauro_dof_upper_limits[-3].item(), 
+                                   self.centauro_dof_lower_limits[-2].item())
         # Write gripper command to appropriate tensor buffer
         self._gripper_control[:] = u_fingers
 
