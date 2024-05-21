@@ -102,23 +102,23 @@ env0 = gym.create_env(sim, env_lower, env_upper, 1)
 # pose = gymapi.Transform()
 robot = gym.create_actor(env0, robot_asset, initial_pose, 'robot', 0, 0, 0)
 
-# load cabinet asset
-asset_options.flip_visual_attachments = False
-asset_options.collapse_fixed_joints = True
-asset_options.disable_gravity = False
-asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
-asset_options.armature = 0.005
-cabinet_asset = gym.load_asset(sim, asset_root, cabinet_asset_file, asset_options)
-# set cabinet dof properties
-cabinet_dof_props = gym.get_asset_dof_properties(cabinet_asset)
-for i in range(len(cabinet_dof_props)):
-    cabinet_dof_props['damping'][i] = 10.0
+# # load cabinet asset
+# asset_options.flip_visual_attachments = False
+# asset_options.collapse_fixed_joints = True
+# asset_options.disable_gravity = False
+# asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
+# asset_options.armature = 0.005
+# cabinet_asset = gym.load_asset(sim, asset_root, cabinet_asset_file, asset_options)
+# # set cabinet dof properties
+# cabinet_dof_props = gym.get_asset_dof_properties(cabinet_asset)
+# for i in range(len(cabinet_dof_props)):
+#     cabinet_dof_props['damping'][i] = 10.0
 
-cabinet_start_pose = gymapi.Transform()
-cabinet_start_pose.p = gymapi.Vec3(*get_axis_params(0.4, up_axis_idx))
-cabinet_pose = cabinet_start_pose
-cabinet_actor = gym.create_actor(env0, cabinet_asset, cabinet_pose, "cabinet")
-gym.set_actor_dof_properties(env0, cabinet_actor, cabinet_dof_props)
+# cabinet_start_pose = gymapi.Transform()
+# cabinet_start_pose.p = gymapi.Vec3(*get_axis_params(0.4, up_axis_idx))
+# cabinet_pose = cabinet_start_pose
+# cabinet_actor = gym.create_actor(env0, cabinet_asset, cabinet_pose, "cabinet")
+# gym.set_actor_dof_properties(env0, cabinet_actor, cabinet_dof_props)
 
 # Configure DOF properties
 props = gym.get_actor_dof_properties(env0, robot)

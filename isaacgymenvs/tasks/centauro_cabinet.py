@@ -285,6 +285,15 @@ class CentauroCabinet(VecTask):
             centauro_actor = self.gym.create_actor(env_ptr, centauro_asset, centauro_start_pose, "centauro", i, 0, 0)
             self.gym.set_actor_dof_properties(env_ptr, centauro_actor, centauro_dof_props)
 
+            # set color
+            num_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
+            for body_idx in range(31):
+                if body_idx == 10 or body_idx == 16 or body_idx == 14 or body_idx == 19 or body_idx == 23 or body_idx == 25 or body_idx == 28 or body_idx == 9:
+                    self.gym.set_rigid_body_color(env_ptr, centauro_actor, body_idx, gymapi.MESH_VISUAL_AND_COLLISION, gymapi.Vec3(0.116, 0.112, 0.108))
+                else:
+                    self.gym.set_rigid_body_color(env_ptr, centauro_actor, body_idx, gymapi.MESH_VISUAL_AND_COLLISION, gymapi.Vec3(0.695, 0.368, 0.086))
+            
+
             if self.aggregate_mode == 2:
                 self.gym.begin_aggregate(env_ptr, max_agg_bodies, max_agg_shapes, True)
 

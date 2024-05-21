@@ -614,7 +614,7 @@ def compute_centauro_reward(
     cube_gap_pos = torch.zeros_like(cube_grasp_pos)
     cube_gap_pos[:, 0] = 0.02
     d_lf = torch.norm(centauro_lfinger_pos - (cube_grasp_pos+cube_gap_pos), dim=-1)
-    d_rf = torch.norm(centauro_rfinger_pos[:, 0] - (cube_grasp_pos-cube_gap_pos), dim=-1)
+    d_rf = torch.norm(centauro_rfinger_pos - (cube_grasp_pos-cube_gap_pos), dim=-1)
     dist_reward = 1 - torch.tanh(10.0 * (d + d_lf + d_rf) / 3)
 
     axis1 = tf_vector(centauro_grasp_rot, gripper_forward_axis)
