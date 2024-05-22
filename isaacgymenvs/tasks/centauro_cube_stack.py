@@ -412,7 +412,7 @@ class CentauroCubeStack(VecTask):
         self._gripper_control = self._pos_control[:, 18]
 
         # Initialize indices
-        self._global_indices = torch.arange(self.num_envs * 5, dtype=torch.int32,
+        self._global_indices = torch.arange(self.num_envs * 4, dtype=torch.int32,
                                            device=self.device).view(self.num_envs, -1)
         
         self.gripper_forward_axis = to_torch([0, 0, 1], device=self.device).repeat((self.num_envs, 1))
@@ -520,7 +520,7 @@ class CentauroCubeStack(VecTask):
                                               len(multi_env_ids_int32))
         
         # Update cube states
-        multi_env_ids_cubes_int32 = self._global_indices[env_ids, -2:].flatten()
+        multi_env_ids_cubes_int32 = self._global_indices[env_ids, -1:].flatten()
         self.gym.set_actor_root_state_tensor_indexed(
             self.sim, gymtorch.unwrap_tensor(self._root_state),
             gymtorch.unwrap_tensor(multi_env_ids_cubes_int32), len(multi_env_ids_cubes_int32))
