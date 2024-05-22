@@ -13,7 +13,7 @@ env:
   clipObservations: 5.0
   clipActions: 1.0
 
-  startPositionNoise: 0.0
+  startPositionNoise: 0.001
   startRotationNoise: 0.0
   centauroPositionNoise: 0.0
   centauroRotationNoise: 0.0
