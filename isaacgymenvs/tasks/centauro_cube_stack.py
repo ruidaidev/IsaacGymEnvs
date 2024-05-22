@@ -686,13 +686,13 @@ def compute_centauro_reward(
     d = torch.norm(states["cubeA_pos_relative"], dim=-1)
     d_lf = torch.norm(states["cubeA_pos"] - states["eef_lf_pos"], dim=-1)
     d_rf = torch.norm(states["cubeA_pos"] - states["eef_rf_pos"], dim=-1)
-    # dist_reward = 1 - torch.tanh(10.0 * (d + d_lf + d_rf) / 3)
-    dist_reward = 1 - torch.tanh(10.0 * d)
+    dist_reward = 1 - torch.tanh(10.0 * (d + d_lf + d_rf) / 3)
+    # dist_reward = 1 - torch.tanh(10.0 * d)
 
-    figure_reward = torch.zeros_like(dist_reward)
-    figure_reward = torch.where(d > 0.01,
-                                torch.where((d_lf - d_rf) > 0.1, figure_reward + 0.5, figure_reward), figure_reward)
-    dist_reward = dist_reward + figure_reward
+    # figure_reward = torch.zeros_like(dist_reward)
+    # figure_reward = torch.where(d > 0.01,
+    #                             torch.where((d_lf - d_rf) > 0.1, figure_reward + 0.5, figure_reward), figure_reward)
+    # dist_reward = dist_reward + figure_reward
 
     # reward for lifting cubeA
     cubeA_height = states["cubeA_pos"][:, 2] - reward_settings["table_height"]
