@@ -190,9 +190,9 @@ class CentauroCubeStack(VecTask):
         centauro_asset = self.gym.load_asset(self.sim, asset_root, centauro_asset_file, asset_options)
 
         centauro_dof_stiffness = to_torch([10000, 10000, 10000, 10000, 10000, 400, 400, 400, 400, 400, 400, 400, 400, 
-                                           400, 400, 400, 400, 400, 1e6, 400, 400], dtype=torch.float, device=self.device)
+                                           400, 400, 400, 400, 400, 400, 400, 400], dtype=torch.float, device=self.device)
         centauro_dof_damping = to_torch([80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80,
-                                         80, 80, 80, 80, 80, 1e2, 80, 80], dtype=torch.float, device=self.device)
+                                         80, 80, 80, 80, 80, 80, 80, 80], dtype=torch.float, device=self.device)
 
         # Create table asset
         table_pos = [0.0, 0.0, 1.0]
