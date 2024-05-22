@@ -216,7 +216,7 @@ class CentauroCubeStack(VecTask):
         self.cubeA_size = 0.050
         self.cubeB_size = 0.070
         cubeA_opts = gymapi.AssetOptions()
-        cubeA_asset = self.gym.create_box(self.sim, *([0.05, 0.05, 0.05]), cubeA_opts)
+        cubeA_asset = self.gym.create_box(self.sim, *([0.05, 0.5, 0.05]), cubeA_opts)
         cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
         # Create cubeB asset
         cubeB_opts = gymapi.AssetOptions()
@@ -322,10 +322,10 @@ class CentauroCubeStack(VecTask):
 
             # Create cubes
             self._cubeA_id = self.gym.create_actor(env_ptr, cubeA_asset, cubeA_start_pose, "cubeA", i, 2, 0)
-            self._cubeB_id = self.gym.create_actor(env_ptr, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
+            # self._cubeB_id = self.gym.create_actor(env_ptr, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
             # Set colors
             self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
-            self.gym.set_rigid_body_color(env_ptr, self._cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
+            # self.gym.set_rigid_body_color(env_ptr, self._cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
 
             if self.aggregate_mode > 0:
                 self.gym.end_aggregate(env_ptr)
@@ -353,7 +353,7 @@ class CentauroCubeStack(VecTask):
             "grip_site": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_tcp"),
             # Cubes
             "cubeA_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeA_id, "box"),
-            "cubeB_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeB_id, "box"),
+            # "cubeB_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeB_id, "box"),
         }
 
         self.dof_handles = {
@@ -394,13 +394,13 @@ class CentauroCubeStack(VecTask):
         mm = gymtorch.wrap_tensor(_massmatrix)
         self._mm = mm[:, :7, :7]
         self._cubeA_state = self._root_state[:, self._cubeA_id, :]
-        self._cubeB_state = self._root_state[:, self._cubeB_id, :]
+        # self._cubeB_state = self._root_state[:, self._cubeB_id, :]
         self.centauro_dof_speed_scales = torch.ones_like(self._q)
 
         # Initialize states
         self.states.update({
             "cubeA_size": torch.ones_like(self._eef_state[:, 0]) * self.cubeA_size,
-            "cubeB_size": torch.ones_like(self._eef_state[:, 0]) * self.cubeB_size,
+            # "cubeB_size": torch.ones_like(self._eef_state[:, 0]) * self.cubeB_size,
         })
 
         # Initialize actions
@@ -440,7 +440,7 @@ class CentauroCubeStack(VecTask):
             "cubeA_pos_relative": self._cubeA_state[:, :3] - self._eef_state[:, :3],
             "cubeB_quat": self._cubeB_state[:, 3:7],
             "cubeB_pos": self._cubeB_state[:, :3],
-            "cubeA_to_cubeB_pos": self._cubeB_state[:, :3] - self._cubeA_state[:, :3],
+            # "cubeA_to_cubeB_pos": self._cubeB_state[:, :3] - self._cubeA_state[:, :3],
         })
 
     def _refresh(self):
@@ -475,13 +475,13 @@ class CentauroCubeStack(VecTask):
 
         # Reset cubes, sampling cube B first, then A
         # if not self._i:
-        self._reset_init_cube_state(cube='B', env_ids=env_ids, check_valid=False)
-        self._reset_init_cube_state(cube='A', env_ids=env_ids, check_valid=True)
+        # self._reset_init_cube_state(cube='B', env_ids=env_ids, check_valid=False)
+        self._reset_init_cube_state(cube='A', env_ids=env_ids, check_valid=False)
         # self._i = True
 
         # Write these new init states to the sim states
         self._cubeA_state[env_ids] = self._init_cubeA_state[env_ids]
-        self._cubeB_state[env_ids] = self._init_cubeB_state[env_ids]
+        # self._cubeB_state[env_ids] = self._init_cubeB_state[env_ids]
 
         # Reset agent
         reset_noise = torch.rand((len(env_ids), 21), device=self.device)
@@ -552,7 +552,7 @@ class CentauroCubeStack(VecTask):
         # Get correct references depending on which one was selected
         if cube.lower() == 'a':
             this_cube_state_all = self._init_cubeA_state
-            other_cube_state = self._init_cubeB_state[env_ids, :]
+            # other_cube_state = self._init_cubeB_state[env_ids, :]
             cube_heights = self.states["cubeA_size"]
         elif cube.lower() == 'b':
             this_cube_state_all = self._init_cubeB_state
@@ -562,10 +562,10 @@ class CentauroCubeStack(VecTask):
             raise ValueError(f"Invalid cube specified, options are 'A' and 'B'; got: {cube}")
 
         # Minimum cube distance for guarenteed collision-free sampling is the sum of each cube's effective radius
-        min_dists = (self.states["cubeA_size"] + self.states["cubeB_size"])[env_ids] * np.sqrt(2) / 2.0
+        # min_dists = (self.states["cubeA_size"] + self.states["cubeB_size"])[env_ids] * np.sqrt(2) / 2.0
 
         # We scale the min dist by 2 so that the cubes aren't too close together
-        min_dists = min_dists * 2.0
+        # min_dists = min_dists * 2.0
 
         # Sampling is "centered" around middle of table
         centered_cube_xy_state = torch.tensor(self._table_surface_pos[:2], device=self.device, dtype=torch.float32)
@@ -755,19 +755,19 @@ def compute_centauro_reward(
     rewards = torch.where(cubeA_height > 0.39, rewards + (2.0 * around_handle_reward), rewards)
 
     # how closely aligned cubeA is to cubeB (only provided if cubeA is lifted)
-    offset = torch.zeros_like(states["cubeA_to_cubeB_pos"])
-    offset[:, 2] = (cubeA_size + cubeB_size) / 2
-    d_ab = torch.norm(states["cubeA_to_cubeB_pos"] + offset, dim=-1)
-    align_reward = (1 - torch.tanh(10.0 * d_ab)) * cubeA_lifted
+    # offset = torch.zeros_like(states["cubeA_to_cubeB_pos"])
+    # offset[:, 2] = (cubeA_size + cubeB_size) / 2
+    # d_ab = torch.norm(states["cubeA_to_cubeB_pos"] + offset, dim=-1)
+    # align_reward = (1 - torch.tanh(10.0 * d_ab)) * cubeA_lifted
 
     # Dist reward is maximum of dist and align reward
-    dist_reward = torch.max(dist_reward, align_reward)
+    # dist_reward = torch.max(dist_reward, align_reward)
 
     # final reward for stacking successfully (only if cubeA is close to target height and corresponding location, and gripper is not grasping)
-    cubeA_align_cubeB = (torch.norm(states["cubeA_to_cubeB_pos"][:, :2], dim=-1) < 0.02)
-    cubeA_on_cubeB = torch.abs(cubeA_height - target_height) < 0.02
-    gripper_away_from_cubeA = (d > 0.04)
-    stack_reward = cubeA_align_cubeB & cubeA_on_cubeB & gripper_away_from_cubeA
+    # cubeA_align_cubeB = (torch.norm(states["cubeA_to_cubeB_pos"][:, :2], dim=-1) < 0.02)
+    # cubeA_on_cubeB = torch.abs(cubeA_height - target_height) < 0.02
+    # gripper_away_from_cubeA = (d > 0.04)
+    # stack_reward = cubeA_align_cubeB & cubeA_on_cubeB & gripper_away_from_cubeA
 
     # Compose rewards
 
@@ -780,6 +780,6 @@ def compute_centauro_reward(
     # )
 
     # Compute resets
-    reset_buf = torch.where((progress_buf >= max_episode_length - 1) | (stack_reward > 0), torch.ones_like(reset_buf), reset_buf)
+    reset_buf = torch.where((progress_buf >= max_episode_length - 1), torch.ones_like(reset_buf), reset_buf)
 
     return rewards, reset_buf
