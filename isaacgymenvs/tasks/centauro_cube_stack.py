@@ -87,7 +87,7 @@ class CentauroCubeStack(VecTask):
         # TODO
         # dimensions
         # obs include: cubeA_pose (7) + cubeB_pos (3) + eef_pose (7) + q_gripper (2)
-        self.cfg["env"]["numObservations"] = 19 if self.control_type == "osc" else 24
+        self.cfg["env"]["numObservations"] = 19 if self.control_type == "osc" else 21
         # actions include: delta EEF if OSC (6) or joint torques (7) + bool gripper (1)
         self.cfg["env"]["numActions"] = 7 if self.control_type == "osc" else 7
 
