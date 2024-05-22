@@ -418,7 +418,7 @@ class CentauroCubeStack(VecTask):
         self.gripper_forward_axis = to_torch([0, 0, 1], device=self.device).repeat((self.num_envs, 1))
         self.gripper_up_axis = to_torch([0, 1, 0], device=self.device).repeat((self.num_envs, 1))
         self.cube_inward_axis = to_torch([0, 0, -1], device=self.device).repeat((self.num_envs, 1))
-        self.cube_up_axis = to_torch([1, 0, 0], device=self.device).repeat((self.num_envs, 1))
+        self.cube_up_axis = to_torch([-1, 0, 0], device=self.device).repeat((self.num_envs, 1))
         
     def _update_states(self):
         self.states.update({
@@ -663,12 +663,12 @@ class CentauroCubeStack(VecTask):
             eef_rf_rot = self._eef_rf_state[:, 3:7]
             cubeA_pos = self.states["cubeA_pos"]
             cubeA_rot = self.states["cubeA_quat"]
-            cubeB_pos = self.states["cubeB_pos"]
-            cubeB_rot = self.states["cubeB_quat"]
+            # cubeB_pos = self.states["cubeB_pos"]
+            # cubeB_rot = self.states["cubeB_quat"]
 
             # Plot visualizations
             for i in range(self.num_envs):
-                for pos, rot in zip((eef_pos, eef_lf_pos, eef_rf_pos, cubeA_pos, cubeB_pos), (eef_rot, eef_lf_rot, eef_rf_rot, cubeA_rot, cubeB_rot)):
+                for pos, rot in zip((eef_pos, eef_lf_pos, eef_rf_pos, cubeA_pos), (eef_rot, eef_lf_rot, eef_rf_rot, cubeA_rot)):
                     px = (pos[i] + quat_apply(rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
                     py = (pos[i] + quat_apply(rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
                     pz = (pos[i] + quat_apply(rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
