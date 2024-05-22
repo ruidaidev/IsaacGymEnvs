@@ -438,8 +438,8 @@ class CentauroCubeStack(VecTask):
             "cubeA_quat": self._cubeA_state[:, 3:7],
             "cubeA_pos": self._cubeA_state[:, :3],
             "cubeA_pos_relative": self._cubeA_state[:, :3] - self._eef_state[:, :3],
-            "cubeB_quat": self._cubeB_state[:, 3:7],
-            "cubeB_pos": self._cubeB_state[:, :3],
+            # "cubeB_quat": self._cubeB_state[:, 3:7],
+            # "cubeB_pos": self._cubeB_state[:, :3],
             # "cubeA_to_cubeB_pos": self._cubeB_state[:, :3] - self._cubeA_state[:, :3],
         })
 
