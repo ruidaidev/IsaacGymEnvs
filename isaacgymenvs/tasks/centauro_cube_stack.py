@@ -216,7 +216,7 @@ class CentauroCubeStack(VecTask):
         self.cubeA_size = 0.050
         self.cubeB_size = 0.070
         cubeA_opts = gymapi.AssetOptions()
-        cubeA_asset = self.gym.create_box(self.sim, *([0.05, 0.5, 0.05]), cubeA_opts)
+        cubeA_asset = self.gym.create_box(self.sim, *([0.05, 0.05, 0.05]), cubeA_opts)
         cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
         # Create cubeB asset
         cubeB_opts = gymapi.AssetOptions()
