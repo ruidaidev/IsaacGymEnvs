@@ -5,6 +5,7 @@ import os
 from isaacgymenvs.utils.torch_jit_utils import to_torch, get_axis_params, tensor_clamp, \
     tf_vector, tf_combine
 from isaacgym import gymtorch
+import numpy as np
 
 # initialize gym
 gym = gymapi.acquire_gym()
@@ -87,20 +88,60 @@ asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
 # asset_options.use_mesh_materials = True
 
 robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
-# robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
-# robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
-
 
 # initial root pose for centauro actors
 initial_pose = gymapi.Transform()
-initial_pose.p = gymapi.Vec3(0.9, 0.0, 0.5)
+initial_pose.p = gymapi.Vec3(0.8, 0.0, 1.0)
 initial_pose.r = gymapi.Quat(0.0, 0.0, 1.0, 0.0)
 
 # Create environment
 env0 = gym.create_env(sim, env_lower, env_upper, 1)
 # Create the robot instance
-# pose = gymapi.Transform()
-robot = gym.create_actor(env0, robot_asset, initial_pose, 'robot', 0, 0, 0)
+robot = gym.create_actor(env0, robot_asset, initial_pose, 'robot', 0, 1, 0)
+
+# Create table asset
+table_pos = [0.0, 0.0, 1.0]
+table_thickness = 0.05
+table_opts = gymapi.AssetOptions()
+table_opts.fix_base_link = True
+table_asset = gym.create_box(sim, *[1.2, 1.2, table_thickness], table_opts)
+
+# Create cubeA asset
+cubeA_size = 0.050
+cubeA_opts = gymapi.AssetOptions()
+cubeA_asset = gym.create_box(sim, *([cubeA_size] * 3), cubeA_opts)
+cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
+
+# Define start pose for table
+table_start_pose = gymapi.Transform()
+table_start_pose.p = gymapi.Vec3(*table_pos)
+table_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+_table_surface_pos = np.array(table_pos) + np.array([0, 0, table_thickness / 2])
+
+# Define start pose for cubes (doesn't really matter since they're get overridden during reset() anyways)
+cubeA_start_pose = gymapi.Transform()
+cubeA_start_pose.p = gymapi.Vec3(0.0, 0.0, 1.0 + table_thickness / 2 + cubeA_size / 2)
+cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+
+table_actor = gym.create_actor(env0, table_asset, table_start_pose, "table", 0, 1, 0)
+
+# Create cubes
+_cubeA_id = gym.create_actor(env0, cubeA_asset, cubeA_start_pose, "cubeA", 0, 2, 0)
+# Set colors
+gym.set_rigid_body_color(env0, _cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+props = gym.get_actor_rigid_body_properties(env0, _cubeA_id)
+props[0].mass = 10.0  # Set the mass to 10 kg
+# props[0].restitution = 0.9  # Set high restitution for high stiffness
+# props[0].friction = 0.5  # Set friction (optional)
+gym.set_actor_rigid_body_properties(env0, _cubeA_id, props)
+
+shape_props = gym.get_actor_rigid_shape_properties(env0, _cubeA_id)
+shape_props[0].restitution = 0.0001  # Set high restitution for high stiffness
+shape_props[0].friction = 50  # Set friction (optional)
+gym.set_actor_rigid_shape_properties(env0, _cubeA_id, shape_props)
+
+
+
 
 # # load cabinet asset
 # asset_options.flip_visual_attachments = False
