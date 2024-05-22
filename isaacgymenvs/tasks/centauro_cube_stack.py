@@ -691,8 +691,7 @@ def compute_centauro_reward(
 
     figure_reward = torch.zeros_like(dist_reward)
     figure_reward = torch.where(d > 0.01,
-                                torch.where((d_lf - d_rf) > 0.1),
-                                figure_reward + 0.5, figure_reward)
+                                torch.where((d_lf - d_rf) > 0.1, figure_reward + 0.5, figure_reward), figure_reward)
     dist_reward = dist_reward + figure_reward
 
     # reward for lifting cubeA
