@@ -419,8 +419,11 @@ class CentauroCubeStack(VecTask):
             "eef_pos": self._eef_state[:, :3],
             "eef_quat": self._eef_state[:, 3:7],
             "eef_vel": self._eef_state[:, 7:],
-            "eef_lf_pos": self._eef_lf_state[:, :3],
-            "eef_rf_pos": self._eef_rf_state[:, :3],
+            "eef_lf_pos": self._eef_lf_state[:, :3] + \
+                        quat_apply(self._eef_lf_state[:, 3:7], to_torch([[0, 0, 1]] * self.num_envs, device=self.device) * 0.15) + \
+                        quat_apply(self._eef_lf_state[:, 3:7], to_torch([[0, 1, 0]] * self.num_envs, device=self.device) * 0.02),
+            "eef_rf_pos": self._eef_rf_state[:, :3] + \
+                        quat_apply(self._eef_rf_state[:, 3:7], to_torch([[0, 1, 0]] * self.num_envs, device=self.device) * 0.1),
             # Cubes
             "cubeA_quat": self._cubeA_state[:, 3:7],
             "cubeA_pos": self._cubeA_state[:, :3],
@@ -642,6 +645,10 @@ class CentauroCubeStack(VecTask):
             # Grab relevant states to visualize
             eef_pos = self.states["eef_pos"]
             eef_rot = self.states["eef_quat"]
+            eef_lf_pos = self.states["eef_lf_pos"]
+            eef_lf_rot = self._eef_lf_state[:, 3:7]
+            eef_rf_pos = self.states["eef_rf_pos"]
+            eef_rf_rot = self._eef_rf_state[:, 3:7]
             cubeA_pos = self.states["cubeA_pos"]
             cubeA_rot = self.states["cubeA_quat"]
             cubeB_pos = self.states["cubeB_pos"]
@@ -649,7 +656,7 @@ class CentauroCubeStack(VecTask):
 
             # Plot visualizations
             for i in range(self.num_envs):
-                for pos, rot in zip((eef_pos, cubeA_pos, cubeB_pos), (eef_rot, cubeA_rot, cubeB_rot)):
+                for pos, rot in zip((eef_pos, eef_lf_pos, eef_rf_pos, cubeA_pos, cubeB_pos), (eef_rot, eef_lf_rot, eef_rf_rot, cubeA_rot, cubeB_rot)):
                     px = (pos[i] + quat_apply(rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
                     py = (pos[i] + quat_apply(rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
                     pz = (pos[i] + quat_apply(rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
