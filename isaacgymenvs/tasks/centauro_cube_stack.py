@@ -13,7 +13,7 @@ import torch
 from isaacgym import gymtorch
 from isaacgym import gymapi
 
-from isaacgymenvs.utils.torch_jit_utils import quat_mul, to_torch, tensor_clamp, quat_apply
+from isaacgymenvs.utils.torch_jit_utils import quat_mul, to_torch, tensor_clamp, quat_apply, tf_vector
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
 @torch.jit.script
@@ -73,6 +73,10 @@ class CentauroCubeStack(VecTask):
             "r_lift_scale": self.cfg["env"]["liftRewardScale"],
             "r_align_scale": self.cfg["env"]["alignRewardScale"],
             "r_stack_scale": self.cfg["env"]["stackRewardScale"],
+            "r_rot_scale" : self.cfg["env"]["rotRewardScale"],
+            "r_around_handle_scale": self.cfg["env"]["aroundHandleRewardScale"],
+            "r_finger_dist_scale": self.cfg["env"]["fingerDistRewardScale"],
+            "r_action_penalty_scale": self.cfg["env"]["actionPenaltyScale"]
         }
 
         # Controller type
@@ -231,7 +235,7 @@ class CentauroCubeStack(VecTask):
         self.centauro_dof_upper_limits = []
         self._centauro_effort_limits = []
         for i in range(self.num_centauro_dofs):
-            centauro_dof_props['driveMode'][i] = gymapi.DOF_MODE_EFFORT
+            centauro_dof_props['driveMode'][i] = gymapi.DOF_MODE_POS
             if self.physics_engine == gymapi.SIM_PHYSX:
                 centauro_dof_props['stiffness'][i] = centauro_dof_stiffness[i]
                 centauro_dof_props['damping'][i] = centauro_dof_damping[i]
@@ -246,7 +250,6 @@ class CentauroCubeStack(VecTask):
         self.centauro_dof_lower_limits = to_torch(self.centauro_dof_lower_limits, device=self.device)
         self.centauro_dof_upper_limits = to_torch(self.centauro_dof_upper_limits, device=self.device)
         self._centauro_effort_limits = to_torch(self._centauro_effort_limits, device=self.device)
-        self.centauro_dof_speed_scales = torch.ones_like(self.centauro_dof_lower_limits)
 
         # Define start pose for centauro
         centauro_start_pose = gymapi.Transform()
@@ -392,6 +395,7 @@ class CentauroCubeStack(VecTask):
         self._mm = mm[:, :7, :7]
         self._cubeA_state = self._root_state[:, self._cubeA_id, :]
         self._cubeB_state = self._root_state[:, self._cubeB_id, :]
+        self.centauro_dof_speed_scales = torch.ones_like(self._q)
 
         # Initialize states
         self.states.update({
@@ -404,12 +408,17 @@ class CentauroCubeStack(VecTask):
         self._effort_control = torch.zeros_like(self._pos_control)
 
         # Initialize control
-        self._arm_control = self._effort_control[:, 12:18]
+        self._arm_control = self._pos_control[:, 12:18]
         self._gripper_control = self._pos_control[:, 18]
 
         # Initialize indices
         self._global_indices = torch.arange(self.num_envs * 5, dtype=torch.int32,
                                            device=self.device).view(self.num_envs, -1)
+        
+        self.gripper_forward_axis = to_torch([0, 0, 1], device=self.device).repeat((self.num_envs, 1))
+        self.gripper_up_axis = to_torch([0, 1, 0], device=self.device).repeat((self.num_envs, 1))
+        self.cube_inward_axis = to_torch([0, 0, -1], device=self.device).repeat((self.num_envs, 1))
+        self.cube_up_axis = to_torch([1, 0, 0], device=self.device).repeat((self.num_envs, 1))
         
     def _update_states(self):
         self.states.update({
@@ -446,7 +455,9 @@ class CentauroCubeStack(VecTask):
 
     def compute_reward(self, actions):
         self.rew_buf[:], self.reset_buf[:] = compute_centauro_reward(
-            self.reset_buf, self.progress_buf, self.actions, self.states, self.reward_settings, self.max_episode_length
+            self.reset_buf, self.progress_buf, self.actions, self.states, self.reward_settings, 
+            self.max_episode_length, self.gripper_forward_axis, self.gripper_up_axis, 
+            self.cube_inward_axis, self.cube_up_axis, self.num_envs
         )
 
     def compute_observations(self):
@@ -612,21 +623,21 @@ class CentauroCubeStack(VecTask):
         # print(self.cmd_limit, self.action_scale)
 
         # Control arm (scale value first)
-        u_arm = u_arm * self.cmd_limit / self.action_scale
-        if self.control_type == "osc":
-            u_arm = self._compute_osc_torques(dpose=u_arm)
-        self._arm_control[:, :] = u_arm
+        # u_arm = u_arm * self.cmd_limit / self.action_scale
+        targets = self._q + self.centauro_dof_speed_scales * self.dt * u_arm * self.action_scale
+        targets = tensor_clamp(targets, self.centauro_dof_lower_limits, self.centauro_dof_upper_limits)
+        self._arm_control[:, :] = targets
 
         # Control gripper
         u_fingers = torch.zeros_like(self._gripper_control)
         u_fingers[:] = torch.where(u_gripper >= 0.0, self.centauro_dof_upper_limits[-3].item(), 
-                                   self.centauro_dof_lower_limits[-2].item())
+                                   self.centauro_dof_lower_limits[-3].item())
         # Write gripper command to appropriate tensor buffer
         self._gripper_control[:] = u_fingers
 
         # Deploy actions
         self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self._pos_control))
-        self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self._effort_control))
+        # self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self._effort_control))
 
     def post_physics_step(self):
         self.progress_buf += 1
@@ -673,9 +684,10 @@ class CentauroCubeStack(VecTask):
 
 @torch.jit.script
 def compute_centauro_reward(
-    reset_buf, progress_buf, actions, states, reward_settings, max_episode_length
+    reset_buf, progress_buf, actions, states, reward_settings, max_episode_length,
+    gripper_forward_axis, gripper_up_axis, cube_inward_axis, cube_up_axis, num_envs
 ):
-    # type: (Tensor, Tensor, Tensor, Dict[str, Tensor], Dict[str, float], float) -> Tuple[Tensor, Tensor]
+    # type: (Tensor, Tensor, Tensor, Dict[str, Tensor], Dict[str, float], float, Tensor, Tensor, Tensor, Tensor, int) -> Tuple[Tensor, Tensor]
 
     # Compute per-env physical parameters
     target_height = states["cubeB_size"] + states["cubeA_size"] / 2.0
@@ -684,20 +696,63 @@ def compute_centauro_reward(
 
     # distance from hand to the cubeA
     d = torch.norm(states["cubeA_pos_relative"], dim=-1)
-    d_lf = torch.norm(states["cubeA_pos"] - states["eef_lf_pos"], dim=-1)
-    d_rf = torch.norm(states["cubeA_pos"] - states["eef_rf_pos"], dim=-1)
-    dist_reward = 1 - torch.tanh(10.0 * (d + d_lf + d_rf) / 3)
+    # d_lf = torch.norm(states["cubeA_pos"] - states["eef_lf_pos"], dim=-1)
+    # d_rf = torch.norm(states["cubeA_pos"] - states["eef_rf_pos"], dim=-1)
+    # dist_reward = 1 - torch.tanh(10.0 * (d + d_lf + d_rf) / 3)
     # dist_reward = 1 - torch.tanh(10.0 * d)
+    dist_reward = 1.0 / (1.0 + d ** 2)
+    dist_reward *= dist_reward
+    dist_reward = torch.where(d <= 0.02, dist_reward * 2, dist_reward)
 
     # figure_reward = torch.zeros_like(dist_reward)
     # figure_reward = torch.where(d > 0.01,
     #                             torch.where((d_lf - d_rf) > 0.1, figure_reward + 0.5, figure_reward), figure_reward)
     # dist_reward = dist_reward + figure_reward
 
+    axis1 = tf_vector(states["eef_quat"], gripper_forward_axis)
+    axis2 = tf_vector(states["cubeA_quat"], cube_inward_axis)
+    axis3 = tf_vector(states["eef_quat"], gripper_up_axis)
+    axis4 = tf_vector(states["cubeA_quat"], cube_up_axis)
+
+    dot1 = torch.bmm(axis1.view(num_envs, 1, 3), axis2.view(num_envs, 3, 1)).squeeze(-1).squeeze(-1)  # alignment of forward axis for gripper
+    dot2 = torch.bmm(axis3.view(num_envs, 1, 3), axis4.view(num_envs, 3, 1)).squeeze(-1).squeeze(-1)  # alignment of up axis for gripper
+    # reward for matching the orientation of the hand to the drawer (fingers wrapped)
+    rot_reward = 0.5 * (torch.sign(dot1) * dot1 ** 2 + torch.sign(dot2) * dot2 ** 2)
+
+    # bonus if right finger is right to the cube handle and left to the lef
+    around_handle_reward = torch.zeros_like(rot_reward)
+    around_handle_reward = torch.where(states["eef_lf_pos"][:, 0] > (states["cubeA_pos"][:, 0]),
+                                       torch.where(states["eef_rf_pos"][:, 0] < (states["cubeA_pos"][:, 0]),
+                                                   around_handle_reward + 0.5, around_handle_reward), around_handle_reward)
+    # reward for distance of each finger from the cube
+    finger_dist_reward = torch.zeros_like(rot_reward)
+    lfinger_dist = torch.abs(states["eef_lf_pos"][:, 0] - (states["cubeA_pos"][:, 0]))
+    rfinger_dist = torch.abs(states["eef_rf_pos"][:, 0] - (states["cubeA_pos"][:, 0]))
+    finger_dist_reward = torch.where(states["eef_lf_pos"][:, 0] > (states["cubeA_pos"][:, 0]),
+                                     torch.where(states["eef_rf_pos"][:, 0] < (states["cubeA_pos"][:, 0]),
+                                                 (0.05 - lfinger_dist) + (0.05 - rfinger_dist), finger_dist_reward), finger_dist_reward)
     # reward for lifting cubeA
     cubeA_height = states["cubeA_pos"][:, 2] - reward_settings["table_height"]
     cubeA_lifted = (cubeA_height - cubeA_size) > 0.04
     lift_reward = cubeA_lifted
+
+    # regularization on the actions (summed for each environment)
+    action_penalty = torch.sum(actions ** 2, dim=-1)
+
+    # rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward - action_penalty_scale * action_penalty
+
+    # rewards = reward_settings["r_dist_scale"] * dist_reward + reward_settings["r_lift_scale"] * lift_reward \
+    #         + around_handle_reward_scale * around_handle_reward \
+    #         - action_penalty_scale * action_penalty
+
+    rewards = reward_settings["r_dist_scale"] * dist_reward + reward_settings["r_rot_scale"] * rot_reward \
+        + reward_settings["r_around_handle_scale"] * around_handle_reward + reward_settings["r_lift_scale"] * lift_reward \
+        + reward_settings["r_finger_dist_scale"] * finger_dist_reward - reward_settings["r_action_penalty_scale"] * action_penalty
+    
+    # bonus for lifting properly
+    rewards = torch.where(cubeA_height > 0.01, rewards + 0.5, rewards)
+    rewards = torch.where(cubeA_height > 0.2, rewards + around_handle_reward, rewards)
+    rewards = torch.where(cubeA_height > 0.39, rewards + (2.0 * around_handle_reward), rewards)
 
     # how closely aligned cubeA is to cubeB (only provided if cubeA is lifted)
     offset = torch.zeros_like(states["cubeA_to_cubeB_pos"])
@@ -716,13 +771,13 @@ def compute_centauro_reward(
 
     # Compose rewards
 
-    # We either provide the stack reward or the align + dist reward
-    rewards = torch.where(
-        stack_reward,
-        reward_settings["r_stack_scale"] * stack_reward,
-        reward_settings["r_dist_scale"] * dist_reward + reward_settings["r_lift_scale"] * lift_reward + reward_settings[
-            "r_align_scale"] * align_reward,
-    )
+    # # We either provide the stack reward or the align + dist reward
+    # rewards = torch.where(
+    #     stack_reward,
+    #     reward_settings["r_stack_scale"] * stack_reward,
+    #     reward_settings["r_dist_scale"] * dist_reward + reward_settings["r_lift_scale"] * lift_reward + reward_settings[
+    #         "r_align_scale"] * align_reward,
+    # )
 
     # Compute resets
     reset_buf = torch.where((progress_buf >= max_episode_length - 1) | (stack_reward > 0), torch.ones_like(reset_buf), reset_buf)
