@@ -625,7 +625,7 @@ class CentauroCubeStack(VecTask):
         # Control arm (scale value first)
         # u_arm = u_arm * self.cmd_limit / self.action_scale
         targets = self._q[:, :-1] + self.dt * u_arm * self.action_scale
-        targets = tensor_clamp(targets, self.centauro_dof_lower_limits[:, 12:18], self.centauro_dof_upper_limits[:, 12:18])
+        targets = tensor_clamp(targets, self.centauro_dof_lower_limits[12:18], self.centauro_dof_upper_limits[12:18])
         self._arm_control[:, :] = targets
 
         # Control gripper
