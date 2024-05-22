@@ -13,11 +13,11 @@ env:
   clipObservations: 5.0
   clipActions: 1.0
 
-  startPositionNoise: 0.25
-  startRotationNoise: 0.785
+  startPositionNoise: 0.0
+  startRotationNoise: 0.0
   centauroPositionNoise: 0.0
   centauroRotationNoise: 0.0
-  centauroDofNoise: 0.25
+  centauroDofNoise: 0.0
 
   aggregateMode: 3
 
