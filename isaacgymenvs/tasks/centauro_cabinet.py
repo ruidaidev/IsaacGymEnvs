@@ -498,6 +498,14 @@ class CentauroCabinet(VecTask):
         env_ids_int32 = torch.arange(self.num_envs, dtype=torch.int32, device=self.device)
         self.gym.set_dof_position_target_tensor(self.sim,
                                                 gymtorch.unwrap_tensor(self.centauro_dof_targets))
+        
+        with open('output.txt', 'a') as file:
+            data = self.centauro_dof_targets[0, :self.num_centauro_dofs]
+            data = data.cpu()
+            tensor_list = data.numpy().tolist()
+            tensor_str = ' '.join(map(str, tensor_list))
+            file.write(tensor_str + '\n')
+
 
     def post_physics_step(self):
         self.progress_buf += 1

@@ -256,7 +256,7 @@ class CentauroCubeStack(VecTask):
 
         # Define start pose for centauro
         centauro_start_pose = gymapi.Transform()
-        centauro_start_pose.p = gymapi.Vec3(-0.5, 0.0, 1.0 + table_thickness / 2 + table_stand_height + 0.2)
+        centauro_start_pose.p = gymapi.Vec3(-0.6, 0.0, 1.0 + table_thickness / 2 + table_stand_height + 0.2)
         centauro_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
         # Define start pose for table
