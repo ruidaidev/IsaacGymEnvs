@@ -26,9 +26,9 @@ env:
   liftRewardScale: 7.5
   alignRewardScale: 2.0
   stackRewardScale: 16.0
-  rotRewardScale: 0.5
+  rotRewardScale: 1.5
   aroundHandleRewardScale: 0.25
-  fingerDistRewardScale: 5.0
+  fingerDistRewardScale: 2.5
   actionPenaltyScale: 0.01
 
   controlType: joint_tor  # options are {joint_tor, osc}

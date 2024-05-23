@@ -429,7 +429,7 @@ class CentauroCubeStack(VecTask):
             "q": self._q[:, :],
             "q_gripper": self._q[:, -1],
             "eef_pos": self._eef_state[:, :3] + \
-                        quat_apply(self._eef_state[:, 3:7], to_torch([[0, 1, 0]] * self.num_envs, device=self.device) * 0.04),
+                        quat_apply(self._eef_state[:, 3:7], to_torch([[0, 1, 0]] * self.num_envs, device=self.device) * 0.01),
             "eef_quat": self._eef_state[:, 3:7],
             "eef_vel": self._eef_state[:, 7:],
             "eef_lf_pos": self._eef_lf_state[:, :3] + \
