@@ -177,6 +177,7 @@ class CentauroCubeStack(VecTask):
 
         asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets")
         centauro_asset_file = "urdf/centauro_urdf/urdf/centauro_sliding_upperbody.urdf"
+        drill_asset_file = "urdf/drill.urdf"
 
         if "asset" in self.cfg["env"]:
             asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
@@ -213,11 +214,13 @@ class CentauroCubeStack(VecTask):
         table_stand_asset = self.gym.create_box(self.sim, *[0.2, 0.2, table_stand_height], table_opts)
 
         # Create cubeA asset
-        self.cubeA_size = 0.050
+        self.cubeA_size = 0.1
         self.cubeB_size = 0.070
         cubeA_opts = gymapi.AssetOptions()
-        cubeA_asset = self.gym.create_box(self.sim, *([0.05, 0.5, 0.05]), cubeA_opts)
-        cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
+        cubeA_opts.collapse_fixed_joints = True
+        # cubeA_asset = self.gym.create_box(self.sim, *([0.05, 0.5, 0.05]), cubeA_opts)
+        cubeA_asset = self.gym.load_asset(self.sim, asset_root, drill_asset_file, cubeA_opts)
+        # cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
         # Create cubeB asset
         cubeB_opts = gymapi.AssetOptions()
         cubeB_asset = self.gym.create_box(self.sim, *([self.cubeB_size] * 3), cubeB_opts)
@@ -324,7 +327,7 @@ class CentauroCubeStack(VecTask):
             self._cubeA_id = self.gym.create_actor(env_ptr, cubeA_asset, cubeA_start_pose, "cubeA", i, 2, 0)
             # self._cubeB_id = self.gym.create_actor(env_ptr, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
             # Set colors
-            self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+            # self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
             # self.gym.set_rigid_body_color(env_ptr, self._cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
 
             if self.aggregate_mode > 0:
@@ -352,7 +355,7 @@ class CentauroCubeStack(VecTask):
             "rightfinger_tip": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_bottom_link"),
             "grip_site": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_tcp"),
             # Cubes
-            "cubeA_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeA_id, "box"),
+            "cubeA_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeA_id, "base_link"),
             # "cubeB_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeB_id, "box"),
         }
 
@@ -417,7 +420,7 @@ class CentauroCubeStack(VecTask):
         
         self.gripper_forward_axis = to_torch([0, 0, 1], device=self.device).repeat((self.num_envs, 1))
         self.gripper_up_axis = to_torch([0, 1, 0], device=self.device).repeat((self.num_envs, 1))
-        self.cube_inward_axis = to_torch([0, 0, -1], device=self.device).repeat((self.num_envs, 1))
+        self.cube_inward_axis = to_torch([0, -1, 0], device=self.device).repeat((self.num_envs, 1))
         self.cube_up_axis = to_torch([-1, 0, 0], device=self.device).repeat((self.num_envs, 1))
         
     def _update_states(self):
@@ -574,7 +577,9 @@ class CentauroCubeStack(VecTask):
         sampled_cube_state[:, 2] = self._table_surface_pos[2] + cube_heights.squeeze(-1)[env_ids] / 2
 
         # Initialize rotation, which is no rotation (quat w = 1)
-        sampled_cube_state[:, 6] = 1.0
+        # sampled_cube_state[:, 6] = 1.0
+        sampled_cube_state[:, 3] = 0.7071
+        sampled_cube_state[:, 6] = 0.7071
 
         # If we're verifying valid sampling, we need to check and re-sample if any are not collision-free
         # We use a simple heuristic of checking based on cubes' radius to determine if a collision would occur
@@ -730,7 +735,7 @@ def compute_centauro_reward(
     rfinger_dist = torch.abs(states["eef_rf_pos"][:, 0] - (states["cubeA_pos"][:, 0]))
     finger_dist_reward = torch.where(states["eef_lf_pos"][:, 0] > (states["cubeA_pos"][:, 0]),
                                      torch.where(states["eef_rf_pos"][:, 0] < (states["cubeA_pos"][:, 0]),
-                                                 (0.05 - lfinger_dist) + (0.05 - rfinger_dist), finger_dist_reward), finger_dist_reward)
+                                                 (0.1 - lfinger_dist) + (0.1 - rfinger_dist), finger_dist_reward), finger_dist_reward)
     # reward for lifting cubeA
     cubeA_height = states["cubeA_pos"][:, 2] - reward_settings["table_height"]
     cubeA_lifted = (cubeA_height - cubeA_size) > 0.04
