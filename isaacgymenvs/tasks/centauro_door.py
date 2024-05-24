@@ -574,7 +574,7 @@ def compute_centauro_reward(
     rewards = reward_settings["r_dist_scale"] * dist_reward + reward_settings["r_rot_scale"] * rot_reward \
         + reward_settings["r_around_handle_scale"] * around_handle_reward + reward_settings["r_handle_scale"] * handle_reward \
         + reward_settings["r_finger_dist_scale"] * finger_dist_reward - reward_settings["r_action_penalty_scale"] * action_penalty \
-        - open_penalty
+        + open_penalty
     
     # bonus for lifting properly
     rewards = torch.where(states["door_handle_angle"].squeeze() > 0.2, torch.where(states["door_panel_angle"].squeeze() > 0.01, rewards + 0.5, rewards), rewards)
