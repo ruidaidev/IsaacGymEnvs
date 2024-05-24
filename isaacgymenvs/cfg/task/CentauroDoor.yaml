@@ -1,12 +1,12 @@
 # used to create the object
-name: CentauroCubeStack
+name: CentauroDoor
 
 physics_engine: ${..physics_engine}
 
 # if given, will override the device setting in gym. 
 env:
   numEnvs: ${resolve_default:8192,${...num_envs}}
-  envSpacing: 2.0
+  envSpacing: 1.5
   episodeLength: 500
   enableDebugVis: False
 
@@ -23,15 +23,14 @@ env:
 
   actionScale: 7.5
   distRewardScale: 2.0
-  liftRewardScale: 7.5
-  alignRewardScale: 2.0
-  stackRewardScale: 16.0
+  handleRewardScale: 7.5
+  openRewardScale: 2.0
   rotRewardScale: 1.5
   aroundHandleRewardScale: 0.25
-  fingerDistRewardScale: 2.5
+  fingerDistRewardScale: 5.0
   actionPenaltyScale: 0.01
 
-  controlType: joint_tor  # options are {joint_tor, osc}
+  controlType: joint_pos
 
   asset:
     assetRoot: "../../assets"

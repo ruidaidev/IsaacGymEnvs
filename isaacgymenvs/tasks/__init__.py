@@ -39,6 +39,7 @@ from .factory.factory_task_nut_bolt_screw import FactoryTaskNutBoltScrew
 from .franka_cabinet import FrankaCabinet
 from .centauro_cabinet import CentauroCabinet
 from .centauro_pick import CentauroPick
+from .centauro_door import CentauroDoor
 from .centauro_cube_stack import CentauroCubeStack
 from .franka_cube_stack import FrankaCubeStack
 from .humanoid import Humanoid
@@ -110,6 +111,7 @@ isaacgym_task_map = {
     "CentauroCabinet": CentauroCabinet,
     "CentauroPick": CentauroPick,
     "CentauroCubeStack": CentauroCubeStack,
+    "CentauroDoor": CentauroDoor,
     "FrankaCubeStack": FrankaCubeStack,
     "Humanoid": Humanoid,
     "HumanoidAMP": HumanoidAMP,
