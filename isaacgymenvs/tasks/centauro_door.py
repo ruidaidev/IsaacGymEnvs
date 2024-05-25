@@ -208,7 +208,7 @@ class CentauroDoor(VecTask):
                 centauro_dof_props['stiffness'][i] = 7000.0
                 centauro_dof_props['damping'][i] = 50.0
 
-            if i == 2 or i == 3 or i == 4:
+            if i == 1 or i == 3 or i == 4:
                 centauro_dof_props['lower'][i] = 0.0
                 centauro_dof_props['upper'][i] = 0.0
             self.centauro_dof_lower_limits.append(centauro_dof_props['lower'][i])
