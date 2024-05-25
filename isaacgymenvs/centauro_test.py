@@ -172,13 +172,18 @@ door_asset = gym.load_asset(sim, asset_root, door_asset_file, asset_options)
 # set cabinet dof properties
 door_dof_props = gym.get_asset_dof_properties(door_asset)
 for i in range(len(door_dof_props)):
+    door_dof_props["driveMode"][i] = gymapi.DOF_MODE_POS
     door_dof_props['damping'][i] = 10.0
+    door_dof_props['stiffness'][i] = 10.0
 
 door_start_pose = gymapi.Transform()
 door_start_pose.p = gymapi.Vec3(*[-1, 0, 1])
 door_pose = door_start_pose
 door_actor = gym.create_actor(env0, door_asset, door_pose, "door", 0, 0, 0)
 gym.set_actor_dof_properties(env0, door_actor, door_dof_props)
+handle_hinge = gym.find_actor_dof_handle(env0, door_actor, 'handle_hinge')
+gym.set_dof_target_position(env0, handle_hinge, 0.5)
+
 
 # # Configure DOF properties
 # props = gym.get_actor_dof_properties(env0, robot)

@@ -133,6 +133,7 @@ class CentauroDoor(VecTask):
         self._refresh()
 
     def create_sim(self):
+        # self.sim_params.use_gpu_pipeline = False
         self.sim_params.up_axis = gymapi.UP_AXIS_Z
         self.sim_params.gravity.x = 0
         self.sim_params.gravity.y = 0
@@ -180,7 +181,7 @@ class CentauroDoor(VecTask):
         door_opts = gymapi.AssetOptions()
         asset_options.disable_gravity = True
         door_opts.fix_base_link = True
-        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_NONE
+        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
         door_asset = self.gym.load_asset(self.sim, asset_root, door_asset_file, door_opts)
 
         self.num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
@@ -218,11 +219,13 @@ class CentauroDoor(VecTask):
         # set door dof properties
         door_dof_props = self.gym.get_asset_dof_properties(door_asset)
         for i in range(self.num_door_dofs):
-            door_dof_props['damping'][i] = 1e6
+            door_dof_props['driveMode'][i] = gymapi.DOF_MODE_POS
+            door_dof_props["stiffness"][i] = 10
+            door_dof_props['damping'][i] = 10
 
         # Define start pose for centauro
         centauro_start_pose = gymapi.Transform()
-        centauro_start_pose.p = gymapi.Vec3(0.7, 0.0, 1.0)
+        centauro_start_pose.p = gymapi.Vec3(0.9, 0.0, 1.0)
         centauro_start_pose.r = gymapi.Quat(0.0, 0.0, 1.0, 0.0)
 
         # Define start pose for table
@@ -348,6 +351,7 @@ class CentauroDoor(VecTask):
         self._arm_control = self._pos_control[:, 12:18]
         self._gripper_control = self._pos_control[:, 18]
         self._base_control = self._pos_control[:, 0:3]
+        self._door_control = self._pos_control[:, -2:]
 
         # Initialize indices
         self._global_indices = torch.arange(self.num_envs * 2, dtype=torch.int32,
@@ -426,6 +430,7 @@ class CentauroDoor(VecTask):
 
         # Reset the internal obs accordingly
         self._dof_state[env_ids, :self.num_centauro_dofs, 0] = pos
+        # self._dof_state[env_ids, -1, 0] = 0.2
         self._dof_state[env_ids, :, 1] = torch.zeros_like(self._dof_state[env_ids, :, 1])
         self._q[env_ids, :] = pos[:, 12:19]
         self._qb[env_ids, :] = pos[:, 0:3]
@@ -435,6 +440,7 @@ class CentauroDoor(VecTask):
         # Set any position control to the current position, and any vel / effort control to be 0
         # NOTE: Task takes care of actually propagating these controls in sim using the SimActions API
         self._pos_control[env_ids, :self.num_centauro_dofs] = pos
+        # self._pos_control[env_ids, -1] = 0.2
         self._effort_control[env_ids, :] = torch.zeros_like(self._pos_control)
 
         # Deploy updates
@@ -443,10 +449,10 @@ class CentauroDoor(VecTask):
                                                         gymtorch.unwrap_tensor(self._pos_control),
                                                         gymtorch.unwrap_tensor(multi_env_ids_int32),
                                                         len(multi_env_ids_int32))
-        self.gym.set_dof_actuation_force_tensor_indexed(self.sim,
-                                                        gymtorch.unwrap_tensor(self._effort_control),
-                                                        gymtorch.unwrap_tensor(multi_env_ids_int32),
-                                                        len(multi_env_ids_int32))
+        # self.gym.set_dof_actuation_force_tensor_indexed(self.sim,
+        #                                                 gymtorch.unwrap_tensor(self._effort_control),
+        #                                                 gymtorch.unwrap_tensor(multi_env_ids_int32),
+        #                                                 len(multi_env_ids_int32))
         self.gym.set_dof_state_tensor_indexed(self.sim,
                                               gymtorch.unwrap_tensor(self._dof_state),
                                               gymtorch.unwrap_tensor(multi_env_ids_int32),
@@ -478,6 +484,16 @@ class CentauroDoor(VecTask):
         base_targets = self._qb[:, :] + self.dt * u_base * self.action_scale
         base_targets = tensor_clamp(base_targets, self.centauro_dof_lower_limits[0:3], self.centauro_dof_upper_limits[0:3])
         self._base_control[:, :] = base_targets
+
+        _door_panel_reset = torch.zeros_like(self._door_control)
+        _door_panel_reset[:, 0] = 0
+        # _door_panel_reset[:, 1] = self.states["door_handle_angle"].squeeze()
+        _door_panel_reset[:, 1] = 0.2
+        _door_panel_remain = torch.zeros_like(self._door_control)
+        _door_panel_remain[:, 0] = self.states["door_panel_angle"].squeeze()
+        _door_panel_remain[:, 1] = self.states["door_handle_angle"].squeeze()
+        self._door_control[:, :] = torch.where(self.states["door_handle_angle"] < 0.5,
+                                       _door_panel_reset, _door_panel_remain)
 
         # Deploy actions
         self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self._pos_control))
@@ -577,9 +593,12 @@ def compute_centauro_reward(
         + open_penalty
     
     # bonus for lifting properly
-    rewards = torch.where(states["door_handle_angle"].squeeze() > 0.2, torch.where(states["door_panel_angle"].squeeze() > 0.01, rewards + 0.5, rewards), rewards)
-    rewards = torch.where(states["door_handle_angle"].squeeze() > 0.2, torch.where(states["door_panel_angle"].squeeze() > 0.2, rewards + 1.0, rewards), rewards)
-    rewards = torch.where(states["door_handle_angle"].squeeze() > 0.2, torch.where(states["door_panel_angle"].squeeze() > 0.5, rewards + 10.0, rewards), rewards)
+    rewards = torch.where(states["door_handle_angle"].squeeze() > 0.2, 
+                          torch.where(states["door_panel_angle"].squeeze() > 0.01, rewards + 0.5, rewards), rewards)
+    rewards = torch.where(states["door_handle_angle"].squeeze() > 0.2, 
+                          torch.where(states["door_panel_angle"].squeeze() > 0.2, rewards + 1.0, rewards), rewards)
+    rewards = torch.where(states["door_handle_angle"].squeeze() > 0.2, 
+                          torch.where(states["door_panel_angle"].squeeze() > 0.5, rewards + 10.0, rewards), rewards)
 
     # Compute resets
     reset_buf = torch.where((progress_buf >= max_episode_length - 1), torch.ones_like(reset_buf), reset_buf)
