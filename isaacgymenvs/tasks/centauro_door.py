@@ -231,7 +231,7 @@ class CentauroDoor(VecTask):
 
         # Define start pose for centauro
         centauro_start_pose = gymapi.Transform()
-        centauro_start_pose.p = gymapi.Vec3(0.9, 0.0, 1.0)
+        centauro_start_pose.p = gymapi.Vec3(1.0, 0.0, 1.0)
         centauro_start_pose.r = gymapi.Quat(0.0, 0.0, 1.0, 0.0)
 
         # Define start pose for table

@@ -40,6 +40,7 @@ from .franka_cabinet import FrankaCabinet
 from .centauro_cabinet import CentauroCabinet
 from .centauro_pick import CentauroPick
 from .centauro_door import CentauroDoor
+from .centauro_dual_arm import CentauroDualArm
 from .centauro_cube_stack import CentauroCubeStack
 from .franka_cube_stack import FrankaCubeStack
 from .humanoid import Humanoid
@@ -112,6 +113,7 @@ isaacgym_task_map = {
     "CentauroPick": CentauroPick,
     "CentauroCubeStack": CentauroCubeStack,
     "CentauroDoor": CentauroDoor,
+    "CentauroDualArm": CentauroDualArm,
     "FrankaCubeStack": FrankaCubeStack,
     "Humanoid": Humanoid,
     "HumanoidAMP": HumanoidAMP,
