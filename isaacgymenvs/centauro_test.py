@@ -76,7 +76,7 @@ asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../assets
 # asset_file = "urdf/franka_description/robots/franka_panda.urdf"
 asset_file = "urdf/centauro_urdf/urdf/centauro_sliding_upperbody.urdf"
 # cabinet_asset_file = "urdf/sektion_cabinet_model/urdf/sektion_cabinet_2.urdf"
-door_asset_file = "urdf/door.urdf"
+door_asset_file = "urdf/door_left.urdf"
 
 # Load asset with default control type of position for all joints
 asset_options = gymapi.AssetOptions()
@@ -182,7 +182,7 @@ door_pose = door_start_pose
 door_actor = gym.create_actor(env0, door_asset, door_pose, "door", 0, 0, 0)
 gym.set_actor_dof_properties(env0, door_actor, door_dof_props)
 handle_hinge = gym.find_actor_dof_handle(env0, door_actor, 'handle_hinge')
-gym.set_dof_target_position(env0, handle_hinge, 0.5)
+gym.set_dof_target_position(env0, handle_hinge, 0.0)
 
 
 # # Configure DOF properties

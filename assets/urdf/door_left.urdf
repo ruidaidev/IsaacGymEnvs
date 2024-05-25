@@ -21,7 +21,7 @@
   <!-- Link: Door Panel -->
   <link name="door_panel">
     <visual>
-      <origin xyz="0 0.4 0.0"/>
+      <origin xyz="0 -0.4 0.0"/>
       <geometry>
         <box size="0.05 0.8 2.0"/>
       </geometry>
@@ -30,14 +30,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0.4 0.0"/>
+      <origin xyz="0 -0.4 0.0"/>
       <geometry>
         <box size="0.05 0.8 2.0"/>
       </geometry>
     </collision>
     <inertial>
       <mass value="10"/>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="0 -0.4 0" rpy="0 0 0"/>
       <inertia ixx="1" ixy="0.0" ixz="0.0" iyy="1" iyz="0.0" izz="1"/>
     </inertial>
   </link>
@@ -45,7 +45,7 @@
   <!-- Link: Door Handle -->
   <link name="door_handle">
     <visual>
-      <origin xyz="0 -0.05 0.0"/>
+      <origin xyz="0 0.05 0.0"/>
       <geometry>
         <box size="0.02 0.1 0.02"/>
       </geometry>
@@ -54,14 +54,14 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0 -0.05 0.0"/>
+      <origin xyz="0 0.05 0.0"/>
       <geometry>
         <box size="0.02 0.1 0.02"/>
       </geometry>
     </collision>
     <inertial>
       <mass value="0.1"/>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="0 0.0 0" rpy="0 0 0"/>
       <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
     </inertial>
   </link>
@@ -70,9 +70,9 @@
   <joint name="handle_hinge" type="revolute">
     <parent link="door_panel"/>
     <child link="door_handle"/>
-    <origin xyz="0.026 0.78 0.1"/>
+    <origin xyz="0.026 -0.78 0.1"/>
     <axis xyz="1 0 0"/>
-    <limit lower="0.0" upper="-0.5" effort="10.0" velocity="1.0"/>
+    <limit lower="-0.5" upper="0.0" effort="10.0" velocity="1.0"/>
   </joint>
 
   <!-- Joint: Connecting Door Panel to Hinge Post -->
@@ -81,7 +81,7 @@
     <child link="door_panel"/>
     <origin xyz="0 0 0.0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="0.0" upper="0.0" effort="10.0" velocity="1.0"/>
+    <limit lower="0.0" upper="0.0001" effort="10.0" velocity="1.0"/>
   </joint>
 
 </robot>

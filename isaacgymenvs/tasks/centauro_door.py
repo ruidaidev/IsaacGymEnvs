@@ -80,9 +80,9 @@ class CentauroDoor(VecTask):
         # TODO
         # dimensions
         # obs include: cubeA_pose (7) + cubeB_pos (3) + eef_pose (7) + q_gripper (2)
-        self.cfg["env"]["numObservations"] = 26
+        self.cfg["env"]["numObservations"] = 29
         # actions include: delta EEF if OSC (6) or joint torques (7) + bool gripper (1)
-        self.cfg["env"]["numActions"] = 10
+        self.cfg["env"]["numActions"] = 13
 
         # Values to be filled in at runtime
         self.states = {}                        # will be dict filled with relevant states to use for reward calculation
@@ -154,7 +154,7 @@ class CentauroDoor(VecTask):
 
         asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets")
         centauro_asset_file = "urdf/centauro_urdf/urdf/centauro_sliding_upperbody.urdf"
-        door_asset_file = "urdf/door.urdf"
+        door_asset_file = "urdf/door_left.urdf"
 
         if "asset" in self.cfg["env"]:
             asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
@@ -177,7 +177,7 @@ class CentauroDoor(VecTask):
                                          80, 80, 80, 80, 80, 80, 80, 80], dtype=torch.float, device=self.device)
 
         # Create door asset
-        door_pos = [0.0, -0.4, 1.0]
+        door_pos = [0.0, 0.4, 1.0]
         door_opts = gymapi.AssetOptions()
         asset_options.disable_gravity = True
         door_opts.fix_base_link = True
@@ -208,6 +208,9 @@ class CentauroDoor(VecTask):
                 centauro_dof_props['stiffness'][i] = 7000.0
                 centauro_dof_props['damping'][i] = 50.0
 
+            if i == 2 or i == 3 or i == 4:
+                centauro_dof_props['lower'][i] = 0.0
+                centauro_dof_props['upper'][i] = 0.0
             self.centauro_dof_lower_limits.append(centauro_dof_props['lower'][i])
             self.centauro_dof_upper_limits.append(centauro_dof_props['upper'][i])
             self._centauro_effort_limits.append(centauro_dof_props['effort'][i])
@@ -334,8 +337,8 @@ class CentauroDoor(VecTask):
         # print(self._dof_state[0, :, :])
         self._q = self._dof_state[:, 12:19, 0]
         self._qd = self._dof_state[:, 12:19, 1]
-        self._qb = self._dof_state[:, 0:3, 0]
-        self._qbd = self._dof_state[:, 0:3, 1]
+        self._qb = self._dof_state[:, 0:6, 0]
+        self._qbd = self._dof_state[:, 0:6, 1]
         self._eef_state = self._rigid_body_state[:, self.handles["grip_site"], :]
         self._eef_lf_state = self._rigid_body_state[:, self.handles["leftfinger_tip"], :]
         self._eef_rf_state = self._rigid_body_state[:, self.handles["rightfinger_tip"], :]
@@ -350,7 +353,7 @@ class CentauroDoor(VecTask):
         # Initialize control
         self._arm_control = self._pos_control[:, 12:18]
         self._gripper_control = self._pos_control[:, 18]
-        self._base_control = self._pos_control[:, 0:3]
+        self._base_control = self._pos_control[:, 0:6]
         self._door_control = self._pos_control[:, -2:]
 
         # Initialize indices
@@ -380,7 +383,7 @@ class CentauroDoor(VecTask):
             # Door
             "door_handle_quat": self._door_handle_state[:, 3:7],
             "door_handle_pos": self._door_handle_state[:, :3] + \
-                        quat_apply(self._door_handle_state[:, 3:7], to_torch([[0, 1, 0]] * self.num_envs, device=self.device) * -0.05),
+                        quat_apply(self._door_handle_state[:, 3:7], to_torch([[0, 1, 0]] * self.num_envs, device=self.device) * 0.05),
             "door_handle_angle": self._door_dof_state[:, -1].unsqueeze(-1),
             "door_panel_quat": self._door_panel_state[:, 3:7],
             "door_panel_pos": self._door_panel_state[:, :3],
@@ -433,7 +436,7 @@ class CentauroDoor(VecTask):
         # self._dof_state[env_ids, -1, 0] = 0.2
         self._dof_state[env_ids, :, 1] = torch.zeros_like(self._dof_state[env_ids, :, 1])
         self._q[env_ids, :] = pos[:, 12:19]
-        self._qb[env_ids, :] = pos[:, 0:3]
+        self._qb[env_ids, :] = pos[:, 0:6]
         self._qd[env_ids, :] = torch.zeros_like(self._qd[env_ids])
         self._qbd[env_ids, :] = torch.zeros_like(self._qbd[env_ids])
 
@@ -482,18 +485,18 @@ class CentauroDoor(VecTask):
 
         # Control base
         base_targets = self._qb[:, :] + self.dt * u_base * self.action_scale
-        base_targets = tensor_clamp(base_targets, self.centauro_dof_lower_limits[0:3], self.centauro_dof_upper_limits[0:3])
+        base_targets = tensor_clamp(base_targets, self.centauro_dof_lower_limits[0:6], self.centauro_dof_upper_limits[0:6])
         self._base_control[:, :] = base_targets
 
-        _door_panel_reset = torch.zeros_like(self._door_control)
-        _door_panel_reset[:, 0] = 0
+        # _door_panel_reset = torch.zeros_like(self._door_control)
+        # _door_panel_reset[:, 0] = 0
         # _door_panel_reset[:, 1] = self.states["door_handle_angle"].squeeze()
-        _door_panel_reset[:, 1] = 0.2
-        _door_panel_remain = torch.zeros_like(self._door_control)
-        _door_panel_remain[:, 0] = self.states["door_panel_angle"].squeeze()
-        _door_panel_remain[:, 1] = self.states["door_handle_angle"].squeeze()
-        self._door_control[:, :] = torch.where(self.states["door_handle_angle"] < 0.5,
-                                       _door_panel_reset, _door_panel_remain)
+        # _door_panel_reset[:, 1] = 0.2
+        # _door_panel_remain = torch.zeros_like(self._door_control)
+        # _door_panel_remain[:, 0] = self.states["door_panel_angle"].squeeze()
+        # _door_panel_remain[:, 1] = self.states["door_handle_angle"].squeeze()
+        # self._door_control[:, :] = torch.where(self.states["door_handle_angle"] < 0.5,
+        #                                _door_panel_reset, _door_panel_remain)
 
         # Deploy actions
         self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self._pos_control))
