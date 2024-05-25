@@ -1,8 +1,9 @@
 ##############################################################################
-# the framework is modified based on franka_cube_stack.py
-# substitute with centauro robot and add door
+# modified based on franka_cube_stack.py
+# substitute with centauro robot
 # Author: Rui Dai
 
+# TODO：not test osc
 ##############################################################################
 
 import numpy as np
@@ -49,7 +50,7 @@ def axisangle2quat(vec, eps=1e-6):
     quat = quat.reshape(list(input_shape) + [4, ])
     return quat
 
-class CentauroDoor(VecTask):
+class CentauroCubeStack(VecTask):
     def __init__(self, cfg, rl_device, sim_device, graphics_device_id, headless, 
                  virtual_screen_capture, force_render):
         self.cfg = cfg
@@ -69,8 +70,7 @@ class CentauroDoor(VecTask):
         # Create dicts to pass to reward function
         self.reward_settings = {
             "r_dist_scale": self.cfg["env"]["distRewardScale"],
-            "r_open_scale": self.cfg["env"]["openRewardScale"],
-            "r_handle_scale": self.cfg["env"]["handleRewardScale"],
+            "r_lift_scale": self.cfg["env"]["liftRewardScale"],
             "r_rot_scale" : self.cfg["env"]["rotRewardScale"],
             "r_around_handle_scale": self.cfg["env"]["aroundHandleRewardScale"],
             "r_finger_dist_scale": self.cfg["env"]["fingerDistRewardScale"],
@@ -89,11 +89,9 @@ class CentauroDoor(VecTask):
         self.handles = {}                       # will be dict mapping names to relevant sim handles
         self.num_dofs = None                    # Total number of DOFs per env
         self.actions = None                     # Current actions to be deployed
-        self._init_doorHandle_state = None      # Initial state of door handle for the current env
-        self._init_doorPanel_state = None       # Initial state of door Panel for the current env
-        self._door_handle_state = None          # Current state of door handle for the current env
-        self._door_panel_state = None           # Current state of door Panel for the current env
-        self._door_id = None                    # Actor ID corresponding to cubeA for a given env
+        self._init_cubeA_state = None           # Initial state of cubeA for the current env
+        self._cubeA_state = None                # Current state of cubeA for the current env
+        self._cubeA_id = None                   # Actor ID corresponding to cubeA for a given env
 
         # Tensor placeholders
         self._root_state = None                 # State of root body (n_envs, 13)
@@ -118,7 +116,10 @@ class CentauroDoor(VecTask):
         super().__init__(config=self.cfg, rl_device=rl_device, sim_device=sim_device, 
                          graphics_device_id=graphics_device_id, headless=headless, 
                          virtual_screen_capture=virtual_screen_capture, force_render=force_render)
-                
+        
+        # self._q = torch.zeros((self.num_envs, 7))
+        # self._qd = torch.zeros((self.num_envs, 7)) 
+        
         # Centauro defaults
         self.centauro_default_dof_pos = to_torch([0.0, 0.0, 0.0, 
                                                   0.0, 0.0, 0.0,
@@ -133,7 +134,6 @@ class CentauroDoor(VecTask):
         self._refresh()
 
     def create_sim(self):
-        # self.sim_params.use_gpu_pipeline = False
         self.sim_params.up_axis = gymapi.UP_AXIS_Z
         self.sim_params.gravity.x = 0
         self.sim_params.gravity.y = 0
@@ -154,7 +154,6 @@ class CentauroDoor(VecTask):
 
         asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets")
         centauro_asset_file = "urdf/centauro_urdf/urdf/centauro_sliding_upperbody.urdf"
-        door_asset_file = "urdf/door_left.urdf"
 
         if "asset" in self.cfg["env"]:
             asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
@@ -167,7 +166,7 @@ class CentauroDoor(VecTask):
         asset_options.collapse_fixed_joints = False
         asset_options.disable_gravity = False
         asset_options.thickness = 0.001
-        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
+        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_EFFORT
         asset_options.use_mesh_materials = True
         centauro_asset = self.gym.load_asset(self.sim, asset_root, centauro_asset_file, asset_options)
 
@@ -176,23 +175,25 @@ class CentauroDoor(VecTask):
         centauro_dof_damping = to_torch([80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80, 80,
                                          80, 80, 80, 80, 80, 80, 80, 80], dtype=torch.float, device=self.device)
 
-        # Create door asset
-        door_pos = [0.0, 0.4, 1.0]
-        door_opts = gymapi.AssetOptions()
-        asset_options.disable_gravity = True
-        door_opts.fix_base_link = True
-        asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
-        door_asset = self.gym.load_asset(self.sim, asset_root, door_asset_file, door_opts)
+        # Create table asset
+        table_pos = [0.0, 0.0, 1.0]
+        table_thickness = 0.05
+        table_opts = gymapi.AssetOptions()
+        table_opts.fix_base_link = True
+        table_asset = self.gym.create_box(self.sim, *[1.2, 1.2, table_thickness], table_opts)
+
+        # Create cubeA asset
+        self.cubeA_size = 0.5
+        cubeA_opts = gymapi.AssetOptions()
+        cubeA_opts.collapse_fixed_joints = True
+        cubeA_asset = self.gym.create_box(self.sim, *([0.5, 0.5, 0.5]), cubeA_opts)
+        cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
 
         self.num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
         self.num_centauro_dofs = self.gym.get_asset_dof_count(centauro_asset)
-        self.num_door_bodies = self.gym.get_asset_rigid_body_count(door_asset)
-        self.num_door_dofs = self.gym.get_asset_dof_count(door_asset)
 
         print("num centauro bodies: ", self.num_centauro_bodies)
         print("num centauro dofs: ", self.num_centauro_dofs)
-        print("num door bodies: ", self.num_door_bodies)
-        print("num door dofs: ", self.num_door_dofs)
 
         # set centauro dof properties
         centauro_dof_props = self.gym.get_asset_dof_properties(centauro_asset)
@@ -208,12 +209,6 @@ class CentauroDoor(VecTask):
                 centauro_dof_props['stiffness'][i] = 7000.0
                 centauro_dof_props['damping'][i] = 50.0
 
-            if i == 1 or i == 3 or i == 4:
-                centauro_dof_props['lower'][i] = 0.0
-                centauro_dof_props['upper'][i] = 0.0
-            if i == 5:
-                centauro_dof_props['lower'][i] = -1.0
-                centauro_dof_props['upper'][i] = 1.0
             self.centauro_dof_lower_limits.append(centauro_dof_props['lower'][i])
             self.centauro_dof_upper_limits.append(centauro_dof_props['upper'][i])
             self._centauro_effort_limits.append(centauro_dof_props['effort'][i])
@@ -222,32 +217,30 @@ class CentauroDoor(VecTask):
         self.centauro_dof_upper_limits = to_torch(self.centauro_dof_upper_limits, device=self.device)
         self._centauro_effort_limits = to_torch(self._centauro_effort_limits, device=self.device)
 
-        # set door dof properties
-        door_dof_props = self.gym.get_asset_dof_properties(door_asset)
-        for i in range(self.num_door_dofs):
-            door_dof_props['driveMode'][i] = gymapi.DOF_MODE_POS
-            door_dof_props["stiffness"][i] = 10
-            door_dof_props['damping'][i] = 10
-
         # Define start pose for centauro
         centauro_start_pose = gymapi.Transform()
-        centauro_start_pose.p = gymapi.Vec3(0.9, 0.0, 1.0)
+        centauro_start_pose.p = gymapi.Vec3(0.6, 0.0, 1.0 + table_thickness / 2 + 0.5)
         centauro_start_pose.r = gymapi.Quat(0.0, 0.0, 1.0, 0.0)
 
         # Define start pose for table
-        door_start_pose = gymapi.Transform()
-        door_start_pose.p = gymapi.Vec3(*door_pos)
+        table_start_pose = gymapi.Transform()
+        table_start_pose.p = gymapi.Vec3(*table_pos)
+        table_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+        self._table_surface_pos = np.array(table_pos) + np.array([0, 0, table_thickness / 2])
+        self.reward_settings["table_height"] = self._table_surface_pos[2]
+
+        # Define start pose for cubes (doesn't really matter since they're get overridden during reset() anyways)
+        cubeA_start_pose = gymapi.Transform()
+        cubeA_start_pose.p = gymapi.Vec3(0.0, 0.0, self._table_surface_pos[2] + self.cubeA_size / 2)
+        cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
         # compute aggregate size
         num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
         num_centauro_shapes = self.gym.get_asset_rigid_shape_count(centauro_asset)
-        num_door_bodies = self.gym.get_asset_rigid_body_count(door_asset)
-        num_door_shapes = self.gym.get_asset_rigid_shape_count(door_asset)
-        max_agg_bodies = num_centauro_bodies + num_door_bodies
-        max_agg_shapes = num_centauro_shapes + num_door_shapes
+        max_agg_bodies = num_centauro_bodies + 2     # 1 for table, cubeA
+        max_agg_shapes = num_centauro_shapes + 2     # 1 for table, cubeA
 
         self.centauros = []
-        self.doors = []
         self.envs = []
 
         # Create environments
@@ -264,7 +257,8 @@ class CentauroDoor(VecTask):
             # Potentially randomize start pose
             if self.centauro_position_noise > 0:
                 rand_xy = self.centauro_position_noise * (-1. + np.random.rand(2) * 2.0)
-                centauro_start_pose.p = gymapi.Vec3(-0.45 + rand_xy[0], 0.0 + rand_xy[1], 1.0)               
+                centauro_start_pose.p = gymapi.Vec3(-0.45 + rand_xy[0], 0.0 + rand_xy[1],
+                                                 1.0 + table_thickness / 2 + 0.5)               
             if self.centauro_rotation_noise > 0:
                 rand_rot = torch.zeros(1, 3)
                 rand_rot[:, -1] = self.centauro_rotation_noise * (-1. + np.random.rand() * 2.0)
@@ -276,11 +270,16 @@ class CentauroDoor(VecTask):
             if self.aggregate_mode == 2:
                 self.gym.begin_aggregate(env_ptr, max_agg_bodies, max_agg_shapes, True)
 
-            # Create door
-            self._door_id= self.gym.create_actor(env_ptr, door_asset, door_start_pose, "door", i, 0, 0)
+            # Create table
+            table_actor = self.gym.create_actor(env_ptr, table_asset, table_start_pose, "table", i, 0, 0)
 
             if self.aggregate_mode == 1:
                 self.gym.begin_aggregate(env_ptr, max_agg_bodies, max_agg_shapes, True)
+
+            # Create cubes
+            self._cubeA_id = self.gym.create_actor(env_ptr, cubeA_asset, cubeA_start_pose, "cubeA", i, 0, 0)
+            # Set colors
+            self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
 
             if self.aggregate_mode > 0:
                 self.gym.end_aggregate(env_ptr)
@@ -288,10 +287,9 @@ class CentauroDoor(VecTask):
             # Store the created env pointers
             self.envs.append(env_ptr)
             self.centauros.append(centauro_actor)
-            self.doors.append(self._door_id)
 
         # Setup init state buffer
-        self._init_door_state = torch.zeros(self.num_envs, 13, device=self.device)
+        self._init_cubeA_state = torch.zeros(self.num_envs, 13, device=self.device)
 
         # Setup data
         self.init_data()
@@ -300,35 +298,23 @@ class CentauroDoor(VecTask):
         # Setup sim handles
         env_ptr = self.envs[0]
         centauro_handle = 0
-
         self.handles = {
             # Centauro
             "hand": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "arm2_6"),
             "leftfinger_tip": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_top_link"),
             "rightfinger_tip": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_bottom_link"),
             "grip_site": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_tcp"),
-            # Door
-            "door_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._door_id, "door_handle"),
-            "door_panel": self.gym.find_actor_rigid_body_handle(self.envs[0], self._door_id, "door_panel"),
+            "ball_tip": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "ball1_tip"),
+            # Cubes
+            "cubeA_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeA_id, "base_link"),
         }
 
-        self.dof_handles = {
-            # Centauro
-            "x_slider": self.gym.find_actor_joint_handle(env_ptr, centauro_handle, "x_slider"),
-            "y_slider": self.gym.find_actor_joint_handle(env_ptr, centauro_handle, "y_slider"),
-            "z_slider": self.gym.find_actor_joint_handle(env_ptr, centauro_handle, "z_slider"),
-            "j_arm2_1": self.gym.find_actor_joint_handle(env_ptr, centauro_handle, "j_arm2_1"),
-            "j_arm2_2": self.gym.find_actor_joint_handle(env_ptr, centauro_handle, "j_arm2_2"),
-            "j_arm2_3": self.gym.find_actor_joint_handle(env_ptr, centauro_handle, "j_arm2_3"),
-            "j_arm2_4": self.gym.find_actor_joint_handle(env_ptr, centauro_handle, "j_arm2_4"),
-            "j_arm2_5": self.gym.find_actor_joint_handle(env_ptr, centauro_handle, "j_arm2_5"),
-            "j_arm2_6": self.gym.find_actor_joint_handle(env_ptr, centauro_handle, "j_arm2_6"),
-            "dagana_2_claw_joint": self.gym.find_actor_joint_handle(env_ptr, centauro_handle, "dagana_2_claw_joint"),
-        }
 
         # Get total DOFs
         self.num_dofs_total = self.gym.get_sim_dof_count(self.sim) // self.num_envs
-        self.num_dofs = 10
+        self.num_dofs = 19
+        # _dof_idx = list(self.dof_handles.values())
+        # self.dof_idx = torch.tensor(_dof_idx)
 
         # Setup tensor buffers
         _actor_root_state_tensor = self.gym.acquire_actor_root_state_tensor(self.sim)
@@ -338,16 +324,19 @@ class CentauroDoor(VecTask):
         self._dof_state = gymtorch.wrap_tensor(_dof_state_tensor).view(self.num_envs, -1, 2)
         self._rigid_body_state = gymtorch.wrap_tensor(_rigid_body_state_tensor).view(self.num_envs, -1, 13)
         # print(self._dof_state[0, :, :])
-        self._q = self._dof_state[:, 12:19, 0]
-        self._qd = self._dof_state[:, 12:19, 1]
-        self._qb = self._dof_state[:, 0:6, 0]
-        self._qbd = self._dof_state[:, 0:6, 1]
+        self._q = self._dof_state[:, 0:19, 0]
+        self._qd = self._dof_state[:, 0:19, 1]
         self._eef_state = self._rigid_body_state[:, self.handles["grip_site"], :]
         self._eef_lf_state = self._rigid_body_state[:, self.handles["leftfinger_tip"], :]
         self._eef_rf_state = self._rigid_body_state[:, self.handles["rightfinger_tip"], :]
-        self._door_dof_state = self._dof_state[:, -2:, 0]
-        self._door_handle_state = self._rigid_body_state[:, self.handles["door_handle"], :]
-        self._door_panel_state = self._rigid_body_state[:, self.handles["door_panel"], :]
+        self._ball_state = self._rigid_body_state[:, self.handles["ball_tip"], :]
+        self._cubeA_state = self._root_state[:, self._cubeA_id, :]
+        self.centauro_dof_speed_scales = torch.ones_like(self._q)
+
+        # Initialize states
+        self.states.update({
+            "cubeA_size": torch.ones_like(self._eef_state[:, 0]) * self.cubeA_size,
+        })
 
         # Initialize actions
         self._pos_control = torch.zeros((self.num_envs, self.num_dofs_total), dtype=torch.float, device=self.device)
@@ -356,24 +345,21 @@ class CentauroDoor(VecTask):
         # Initialize control
         self._arm_control = self._pos_control[:, 12:18]
         self._gripper_control = self._pos_control[:, 18]
-        self._base_control = self._pos_control[:, 0:6]
-        self._door_control = self._pos_control[:, -2:]
 
         # Initialize indices
-        self._global_indices = torch.arange(self.num_envs * 2, dtype=torch.int32,
+        self._global_indices = torch.arange(self.num_envs * 4, dtype=torch.int32,
                                            device=self.device).view(self.num_envs, -1)
         
         self.gripper_forward_axis = to_torch([0, 0, 1], device=self.device).repeat((self.num_envs, 1))
-        self.gripper_up_axis = to_torch([0, -1, 0], device=self.device).repeat((self.num_envs, 1))
-        self.handle_inward_axis = to_torch([-1, 0, 0], device=self.device).repeat((self.num_envs, 1))
-        self.handle_up_axis = to_torch([0, 0, 1], device=self.device).repeat((self.num_envs, 1))
+        self.gripper_up_axis = to_torch([0, 1, 0], device=self.device).repeat((self.num_envs, 1))
+        self.cube_inward_axis = to_torch([0, -1, 0], device=self.device).repeat((self.num_envs, 1))
+        self.cube_up_axis = to_torch([-1, 0, 0], device=self.device).repeat((self.num_envs, 1))
         
     def _update_states(self):
         self.states.update({
             # Centauro
             "q": self._q[:, :],
             "q_gripper": self._q[:, -1],
-            "qb": self._qb[:, :],
             "eef_pos": self._eef_state[:, :3] + \
                         quat_apply(self._eef_state[:, 3:7], to_torch([[0, 1, 0]] * self.num_envs, device=self.device) * 0.01),
             "eef_quat": self._eef_state[:, 3:7],
@@ -383,15 +369,13 @@ class CentauroDoor(VecTask):
                         quat_apply(self._eef_lf_state[:, 3:7], to_torch([[0, 1, 0]] * self.num_envs, device=self.device) * 0.02),
             "eef_rf_pos": self._eef_rf_state[:, :3] + \
                         quat_apply(self._eef_rf_state[:, 3:7], to_torch([[0, 1, 0]] * self.num_envs, device=self.device) * 0.1),
-            # Door
-            "door_handle_quat": self._door_handle_state[:, 3:7],
-            "door_handle_pos": self._door_handle_state[:, :3] + \
-                        quat_apply(self._door_handle_state[:, 3:7], to_torch([[0, 1, 0]] * self.num_envs, device=self.device) * 0.05),
-            "door_handle_angle": self._door_dof_state[:, -1].unsqueeze(-1),
-            "door_panel_quat": self._door_panel_state[:, 3:7],
-            "door_panel_pos": self._door_panel_state[:, :3],
-            "door_panel_angle": self._door_dof_state[:, 0].unsqueeze(-1),
-            "door_handle_pos_relative": self._door_handle_state[:, :3] - self._eef_state[:, :3],
+            # Cubes
+            "cubeA_quat": self._cubeA_state[:, 3:7],
+            "cubeA_pos": self._cubeA_state[:, :3],
+            "cubeA_pos_relative": self._cubeA_state[:, :3] - self._eef_state[:, :3],
+            # "cubeB_quat": self._cubeB_state[:, 3:7],
+            # "cubeB_pos": self._cubeB_state[:, :3],
+            # "cubeA_to_cubeB_pos": self._cubeB_state[:, :3] - self._cubeA_state[:, :3],
         })
 
     def _refresh(self):
@@ -408,21 +392,31 @@ class CentauroDoor(VecTask):
         self.rew_buf[:], self.reset_buf[:] = compute_centauro_reward(
             self.reset_buf, self.progress_buf, self.actions, self.states, self.reward_settings, 
             self.max_episode_length, self.gripper_forward_axis, self.gripper_up_axis, 
-            self.handle_inward_axis, self.handle_up_axis, self.num_envs
+            self.cube_inward_axis, self.cube_up_axis, self.num_envs
         )
 
     def compute_observations(self):
         self._refresh()
-        obs = ["door_handle_quat", "door_handle_pos", "eef_pos", "eef_quat", "door_panel_angle", "door_handle_angle", "q", "qb"]
+        obs = ["cubeA_quat", "cubeA_pos", "eef_pos", "eef_quat"]
+        obs += ["q_gripper"] if self.control_type == "osc" else ["q"]
         self.obs_buf = torch.cat([self.states[ob] for ob in obs], dim=-1)
+
+        maxs = {ob: torch.max(self.states[ob]).item() for ob in obs}
 
         return self.obs_buf
     
     def reset_idx(self, env_ids):
         env_ids_int32 = env_ids.to(dtype=torch.int32)
 
-        # reset door
-        self._door_dof_state[env_ids, :] = torch.zeros_like(self._door_dof_state[env_ids])
+        # Reset cubes, sampling cube B first, then A
+        # if not self._i:
+        # self._reset_init_cube_state(cube='B', env_ids=env_ids, check_valid=False)
+        self._reset_init_cube_state(cube='A', env_ids=env_ids, check_valid=False)
+        # self._i = True
+
+        # Write these new init states to the sim states
+        self._cubeA_state[env_ids] = self._init_cubeA_state[env_ids]
+        # self._cubeB_state[env_ids] = self._init_cubeB_state[env_ids]
 
         # Reset agent
         reset_noise = torch.rand((len(env_ids), 21), device=self.device)
@@ -435,71 +429,148 @@ class CentauroDoor(VecTask):
         # pos[:, -3] = self.centauro_default_dof_pos[-3]
 
         # Reset the internal obs accordingly
-        self._dof_state[env_ids, :self.num_centauro_dofs, 0] = pos
-        # self._dof_state[env_ids, -1, 0] = 0.2
+        self._dof_state[env_ids, :, 0] = pos
         self._dof_state[env_ids, :, 1] = torch.zeros_like(self._dof_state[env_ids, :, 1])
         self._q[env_ids, :] = pos[:, 12:19]
-        self._qb[env_ids, :] = pos[:, 0:6]
         self._qd[env_ids, :] = torch.zeros_like(self._qd[env_ids])
-        self._qbd[env_ids, :] = torch.zeros_like(self._qbd[env_ids])
 
         # Set any position control to the current position, and any vel / effort control to be 0
         # NOTE: Task takes care of actually propagating these controls in sim using the SimActions API
-        self._pos_control[env_ids, :self.num_centauro_dofs] = pos
-        # self._pos_control[env_ids, -1] = 0.2
-        self._effort_control[env_ids, :] = torch.zeros_like(self._pos_control)
+        self._pos_control[env_ids, :] = pos
+        self._effort_control[env_ids, :] = torch.zeros_like(pos)
 
         # Deploy updates
-        multi_env_ids_int32 = self._global_indices[env_ids, :].flatten()
+        multi_env_ids_int32 = self._global_indices[env_ids, 0].flatten()
         self.gym.set_dof_position_target_tensor_indexed(self.sim,
                                                         gymtorch.unwrap_tensor(self._pos_control),
                                                         gymtorch.unwrap_tensor(multi_env_ids_int32),
                                                         len(multi_env_ids_int32))
-        # self.gym.set_dof_actuation_force_tensor_indexed(self.sim,
-        #                                                 gymtorch.unwrap_tensor(self._effort_control),
-        #                                                 gymtorch.unwrap_tensor(multi_env_ids_int32),
-        #                                                 len(multi_env_ids_int32))
+        self.gym.set_dof_actuation_force_tensor_indexed(self.sim,
+                                                        gymtorch.unwrap_tensor(self._effort_control),
+                                                        gymtorch.unwrap_tensor(multi_env_ids_int32),
+                                                        len(multi_env_ids_int32))
         self.gym.set_dof_state_tensor_indexed(self.sim,
                                               gymtorch.unwrap_tensor(self._dof_state),
                                               gymtorch.unwrap_tensor(multi_env_ids_int32),
                                               len(multi_env_ids_int32))
         
+        # Update cube states
+        multi_env_ids_cubes_int32 = self._global_indices[env_ids, -1:].flatten()
+        self.gym.set_actor_root_state_tensor_indexed(
+            self.sim, gymtorch.unwrap_tensor(self._root_state),
+            gymtorch.unwrap_tensor(multi_env_ids_cubes_int32), len(multi_env_ids_cubes_int32))
 
         self.progress_buf[env_ids] = 0
         self.reset_buf[env_ids] = 0
+
+    def _reset_init_cube_state(self, cube, env_ids, check_valid=True):
+        """
+        Simple method to sample @cube's position based on self.startPositionNoise and self.startRotationNoise, and
+        automaticlly reset the pose internally. Populates the appropriate self._init_cubeX_state
+
+        If @check_valid is True, then this will also make sure that the sampled position is not in contact with the
+        other cube.
+
+        Args:
+            cube(str): Which cube to sample location for. Either 'A' or 'B'
+            env_ids (tensor or None): Specific environments to reset cube for
+            check_valid (bool): Whether to make sure sampled position is collision-free with the other cube.
+        """
+        # If env_ids is None, we reset all the envs
+        if env_ids is None:
+            env_ids = torch.arange(start=0, end=self.num_envs, device=self.device, dtype=torch.long)
+
+        # Initialize buffer to hold sampled values
+        num_resets = len(env_ids)
+        sampled_cube_state = torch.zeros(num_resets, 13, device=self.device)
+
+        # Get correct references depending on which one was selected
+        if cube.lower() == 'a':
+            this_cube_state_all = self._init_cubeA_state
+            # other_cube_state = self._init_cubeB_state[env_ids, :]
+            cube_heights = self.states["cubeA_size"]
+        elif cube.lower() == 'b':
+            this_cube_state_all = self._init_cubeB_state
+            other_cube_state = self._init_cubeA_state[env_ids, :]
+            cube_heights = self.states["cubeA_size"]
+        else:
+            raise ValueError(f"Invalid cube specified, options are 'A' and 'B'; got: {cube}")
+
+        # Minimum cube distance for guarenteed collision-free sampling is the sum of each cube's effective radius
+        # min_dists = (self.states["cubeA_size"] + self.states["cubeB_size"])[env_ids] * np.sqrt(2) / 2.0
+
+        # We scale the min dist by 2 so that the cubes aren't too close together
+        # min_dists = min_dists * 2.0
+
+        # Sampling is "centered" around middle of table
+        centered_cube_xy_state = torch.tensor(self._table_surface_pos[:2], device=self.device, dtype=torch.float32)
+
+        # Set z value, which is fixed height
+        sampled_cube_state[:, 2] = self._table_surface_pos[2] + cube_heights.squeeze(-1)[env_ids] / 2
+
+        # Initialize rotation, which is no rotation (quat w = 1)
+        # sampled_cube_state[:, 6] = 1.0
+        sampled_cube_state[:, 3] = 0.7071
+        sampled_cube_state[:, 6] = 0.7071
+
+        # If we're verifying valid sampling, we need to check and re-sample if any are not collision-free
+        # We use a simple heuristic of checking based on cubes' radius to determine if a collision would occur
+        if check_valid:
+            success = False
+            # Indexes corresponding to envs we're still actively sampling for
+            active_idx = torch.arange(num_resets, device=self.device)
+            num_active_idx = len(active_idx)
+            for i in range(100):
+                # Sample x y values
+                sampled_cube_state[active_idx, :2] = centered_cube_xy_state + \
+                                                     2.0 * self.start_position_noise * (
+                                                             torch.rand_like(sampled_cube_state[active_idx, :2]) - 0.5)
+                # Check if sampled values are valid
+                cube_dist = torch.linalg.norm(sampled_cube_state[:, :2] - other_cube_state[:, :2], dim=-1)
+                active_idx = torch.nonzero(cube_dist < min_dists, as_tuple=True)[0]
+                num_active_idx = len(active_idx)
+                # If active idx is empty, then all sampling is valid :D
+                if num_active_idx == 0:
+                    success = True
+                    break
+            # Make sure we succeeded at sampling
+            assert success, "Sampling cube locations was unsuccessful! ):"
+        else:
+            # We just directly sample
+            sampled_cube_state[:, :2] = centered_cube_xy_state.unsqueeze(0) + \
+                                              2.0 * self.start_position_noise * (
+                                                      torch.rand(num_resets, 2, device=self.device) - 0.5)
+
+        # Sample rotation value
+        if self.start_rotation_noise > 0:
+            aa_rot = torch.zeros(num_resets, 3, device=self.device)
+            aa_rot[:, 2] = 2.0 * self.start_rotation_noise * (torch.rand(num_resets, device=self.device) - 0.5)
+            sampled_cube_state[:, 3:7] = quat_mul(axisangle2quat(aa_rot), sampled_cube_state[:, 3:7])
+
+        # Lastly, set these sampled values as the new init state
+        this_cube_state_all[env_ids, :] = sampled_cube_state
 
     def pre_physics_step(self, actions):
         self.actions = actions.clone().to(self.device)
 
         # Split arm and gripper command
-        u_arm, u_gripper, u_base = self.actions[:, :6], self.actions[:, 6], self.actions[:, 7:]
+        u_arm, u_gripper = self.actions[:, :-1], self.actions[:, -1]
+
+        # print(u_arm, u_gripper)
+        # print(self.cmd_limit, self.action_scale)
 
         # Control arm (scale value first)
         # u_arm = u_arm * self.cmd_limit / self.action_scale
-        arm_targets = self._q[:, :-1] + self.dt * u_arm * self.action_scale
-        arm_targets = tensor_clamp(arm_targets, self.centauro_dof_lower_limits[12:18], self.centauro_dof_upper_limits[12:18])
-        self._arm_control[:, :] = arm_targets
+        targets = self._q[:, :-1] + self.dt * u_arm * self.action_scale
+        targets = tensor_clamp(targets, self.centauro_dof_lower_limits[12:18], self.centauro_dof_upper_limits[12:18])
+        self._arm_control[:, :] = targets
 
         # Control gripper
-        u_fingers = self._q[:, -1] + self.dt * u_gripper * self.action_scale
-        u_fingers = tensor_clamp(u_fingers, self.centauro_dof_lower_limits[18], self.centauro_dof_upper_limits[18])
+        u_fingers = torch.zeros_like(self._gripper_control)
+        u_fingers[:] = torch.where(u_gripper >= 0.0, self.centauro_dof_upper_limits[-3].item(), 
+                                   self.centauro_dof_lower_limits[-3].item())
         # Write gripper command to appropriate tensor buffer
         self._gripper_control[:] = u_fingers
-
-        # Control base
-        base_targets = self._qb[:, :] + self.dt * u_base * self.action_scale
-        base_targets = tensor_clamp(base_targets, self.centauro_dof_lower_limits[0:6], self.centauro_dof_upper_limits[0:6])
-        self._base_control[:, :] = base_targets
-
-        # _door_panel_reset = torch.zeros_like(self._door_control)
-        # _door_panel_reset[:, 0] = 0
-        # _door_panel_reset[:, 1] = self.states["door_handle_angle"].squeeze()
-        # _door_panel_reset[:, 1] = 0.2
-        # _door_panel_remain = torch.zeros_like(self._door_control)
-        # _door_panel_remain[:, 0] = self.states["door_panel_angle"].squeeze()
-        # _door_panel_remain[:, 1] = self.states["door_handle_angle"].squeeze()
-        # self._door_control[:, :] = torch.where(self.states["door_handle_angle"] < 0.5,
-        #                                _door_panel_reset, _door_panel_remain)
 
         # Deploy actions
         self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self._pos_control))
@@ -527,12 +598,14 @@ class CentauroDoor(VecTask):
             eef_lf_rot = self._eef_lf_state[:, 3:7]
             eef_rf_pos = self.states["eef_rf_pos"]
             eef_rf_rot = self._eef_rf_state[:, 3:7]
-            door_handle_pos = self.states["door_handle_pos"]
-            door_handle_rot = self.states["door_handle_quat"]
+            cubeA_pos = self.states["cubeA_pos"]
+            cubeA_rot = self.states["cubeA_quat"]
+            # cubeB_pos = self.states["cubeB_pos"]
+            # cubeB_rot = self.states["cubeB_quat"]
 
             # Plot visualizations
             for i in range(self.num_envs):
-                for pos, rot in zip((eef_pos, eef_lf_pos, eef_rf_pos, door_handle_pos), (eef_rot, eef_lf_rot, eef_rf_rot, door_handle_rot)):
+                for pos, rot in zip((eef_pos, eef_lf_pos, eef_rf_pos, cubeA_pos), (eef_rot, eef_lf_rot, eef_rf_rot, cubeA_rot)):
                     px = (pos[i] + quat_apply(rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
                     py = (pos[i] + quat_apply(rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
                     pz = (pos[i] + quat_apply(rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
@@ -546,65 +619,102 @@ class CentauroDoor(VecTask):
 ###=========================jit functions=========================###
 #####################################################################
 
-# @torch.jit.script
+@torch.jit.script
 def compute_centauro_reward(
     reset_buf, progress_buf, actions, states, reward_settings, max_episode_length,
-    gripper_forward_axis, gripper_up_axis, handle_inward_axis, handle_up_axis, num_envs
+    gripper_forward_axis, gripper_up_axis, cube_inward_axis, cube_up_axis, num_envs
 ):
     # type: (Tensor, Tensor, Tensor, Dict[str, Tensor], Dict[str, float], float, Tensor, Tensor, Tensor, Tensor, int) -> Tuple[Tensor, Tensor]
 
-    # distance from hand to the handle
-    d = torch.norm(states["door_handle_pos_relative"], dim=-1)
+    # Compute per-env physical parameters
+    target_height = states["cubeB_size"] + states["cubeA_size"] / 2.0
+    cubeA_size = states["cubeA_size"]
+    cubeB_size = states["cubeB_size"]
+
+    # distance from hand to the cubeA
+    d = torch.norm(states["cubeA_pos_relative"], dim=-1)
+    # d_lf = torch.norm(states["cubeA_pos"] - states["eef_lf_pos"], dim=-1)
+    # d_rf = torch.norm(states["cubeA_pos"] - states["eef_rf_pos"], dim=-1)
+    # dist_reward = 1 - torch.tanh(10.0 * (d + d_lf + d_rf) / 3)
+    # dist_reward = 1 - torch.tanh(10.0 * d)
     dist_reward = 1.0 / (1.0 + d ** 2)
     dist_reward *= dist_reward
     dist_reward = torch.where(d <= 0.02, dist_reward * 2, dist_reward)
 
+    # figure_reward = torch.zeros_like(dist_reward)
+    # figure_reward = torch.where(d > 0.01,
+    #                             torch.where((d_lf - d_rf) > 0.1, figure_reward + 0.5, figure_reward), figure_reward)
+    # dist_reward = dist_reward + figure_reward
+
     axis1 = tf_vector(states["eef_quat"], gripper_forward_axis)
-    axis2 = tf_vector(states["door_handle_quat"], handle_inward_axis)
+    axis2 = tf_vector(states["cubeA_quat"], cube_inward_axis)
     axis3 = tf_vector(states["eef_quat"], gripper_up_axis)
-    axis4 = tf_vector(states["door_handle_quat"], handle_up_axis)
+    axis4 = tf_vector(states["cubeA_quat"], cube_up_axis)
 
     dot1 = torch.bmm(axis1.view(num_envs, 1, 3), axis2.view(num_envs, 3, 1)).squeeze(-1).squeeze(-1)  # alignment of forward axis for gripper
     dot2 = torch.bmm(axis3.view(num_envs, 1, 3), axis4.view(num_envs, 3, 1)).squeeze(-1).squeeze(-1)  # alignment of up axis for gripper
     # reward for matching the orientation of the hand to the drawer (fingers wrapped)
     rot_reward = 0.5 * (torch.sign(dot1) * dot1 ** 2 + torch.sign(dot2) * dot2 ** 2)
 
-    # bonus if right finger is up to the cube handle and left to the bottom
+    # bonus if right finger is right to the cube handle and left to the lef
     around_handle_reward = torch.zeros_like(rot_reward)
-    around_handle_reward = torch.where(states["eef_lf_pos"][:, 0] < (states["door_handle_pos"][:, 2]),
-                                       torch.where(states["eef_rf_pos"][:, 0] > (states["door_handle_pos"][:, 2]),
+    around_handle_reward = torch.where(states["eef_lf_pos"][:, 0] > (states["cubeA_pos"][:, 0]),
+                                       torch.where(states["eef_rf_pos"][:, 0] < (states["cubeA_pos"][:, 0]),
                                                    around_handle_reward + 0.5, around_handle_reward), around_handle_reward)
-    # reward for distance of each finger from the handle
+    # reward for distance of each finger from the cube
     finger_dist_reward = torch.zeros_like(rot_reward)
-    lfinger_dist = torch.abs(states["eef_lf_pos"][:, 0] - (states["door_handle_pos"][:, 0]))
-    rfinger_dist = torch.abs(states["eef_rf_pos"][:, 0] - (states["door_handle_pos"][:, 0]))
-    finger_dist_reward = torch.where(states["eef_lf_pos"][:, 0] < (states["door_handle_pos"][:, 0]),
-                                     torch.where(states["eef_rf_pos"][:, 0] > (states["door_handle_pos"][:, 0]),
-                                                 (0.02 - lfinger_dist) + (0.02 - rfinger_dist), finger_dist_reward), finger_dist_reward)
-    # reward for rotating handle
-    handle_reward = states["door_handle_angle"].squeeze() * around_handle_reward + states["door_handle_angle"].squeeze()
+    lfinger_dist = torch.abs(states["eef_lf_pos"][:, 0] - (states["cubeA_pos"][:, 0]))
+    rfinger_dist = torch.abs(states["eef_rf_pos"][:, 0] - (states["cubeA_pos"][:, 0]))
+    finger_dist_reward = torch.where(states["eef_lf_pos"][:, 0] > (states["cubeA_pos"][:, 0]),
+                                     torch.where(states["eef_rf_pos"][:, 0] < (states["cubeA_pos"][:, 0]),
+                                                 (0.1 - lfinger_dist) + (0.1 - rfinger_dist), finger_dist_reward), finger_dist_reward)
+    # reward for lifting cubeA
+    cubeA_height = states["cubeA_pos"][:, 2] - reward_settings["table_height"]
+    cubeA_lifted = (cubeA_height - cubeA_size) > 0.04
+    lift_reward = cubeA_lifted
 
     # regularization on the actions (summed for each environment)
     action_penalty = torch.sum(actions ** 2, dim=-1)
 
-    # penalty on open before handle properly
-    open_penalty = torch.zeros_like(rot_reward)
-    open_penalty = torch.where(states["door_handle_angle"].squeeze() < 0.2,
-                                       torch.where(states["door_panel_angle"].squeeze() > 0.2,
-                                                   open_penalty - 100, open_penalty), open_penalty)
+    # rewards = dist_reward_scale * dist_reward + lift_reward_scale * lift_reward - action_penalty_scale * action_penalty
+
+    # rewards = reward_settings["r_dist_scale"] * dist_reward + reward_settings["r_lift_scale"] * lift_reward \
+    #         + around_handle_reward_scale * around_handle_reward \
+    #         - action_penalty_scale * action_penalty
 
     rewards = reward_settings["r_dist_scale"] * dist_reward + reward_settings["r_rot_scale"] * rot_reward \
-        + reward_settings["r_around_handle_scale"] * around_handle_reward + reward_settings["r_handle_scale"] * handle_reward \
-        + reward_settings["r_finger_dist_scale"] * finger_dist_reward - reward_settings["r_action_penalty_scale"] * action_penalty \
-        + open_penalty
+        + reward_settings["r_around_handle_scale"] * around_handle_reward + reward_settings["r_lift_scale"] * lift_reward \
+        + reward_settings["r_finger_dist_scale"] * finger_dist_reward - reward_settings["r_action_penalty_scale"] * action_penalty
     
     # bonus for lifting properly
-    rewards = torch.where(states["door_handle_angle"].squeeze() > 0.2, 
-                          torch.where(states["door_panel_angle"].squeeze() > 0.01, rewards + 0.5, rewards), rewards)
-    rewards = torch.where(states["door_handle_angle"].squeeze() > 0.2, 
-                          torch.where(states["door_panel_angle"].squeeze() > 0.2, rewards + 1.0, rewards), rewards)
-    rewards = torch.where(states["door_handle_angle"].squeeze() > 0.2, 
-                          torch.where(states["door_panel_angle"].squeeze() > 0.5, rewards + 10.0, rewards), rewards)
+    rewards = torch.where(cubeA_height > 0.01, rewards + 0.5, rewards)
+    rewards = torch.where(cubeA_height > 0.2, rewards + around_handle_reward, rewards)
+    rewards = torch.where(cubeA_height > 0.39, rewards + (2.0 * around_handle_reward), rewards)
+
+    # how closely aligned cubeA is to cubeB (only provided if cubeA is lifted)
+    # offset = torch.zeros_like(states["cubeA_to_cubeB_pos"])
+    # offset[:, 2] = (cubeA_size + cubeB_size) / 2
+    # d_ab = torch.norm(states["cubeA_to_cubeB_pos"] + offset, dim=-1)
+    # align_reward = (1 - torch.tanh(10.0 * d_ab)) * cubeA_lifted
+
+    # Dist reward is maximum of dist and align reward
+    # dist_reward = torch.max(dist_reward, align_reward)
+
+    # final reward for stacking successfully (only if cubeA is close to target height and corresponding location, and gripper is not grasping)
+    # cubeA_align_cubeB = (torch.norm(states["cubeA_to_cubeB_pos"][:, :2], dim=-1) < 0.02)
+    # cubeA_on_cubeB = torch.abs(cubeA_height - target_height) < 0.02
+    # gripper_away_from_cubeA = (d > 0.04)
+    # stack_reward = cubeA_align_cubeB & cubeA_on_cubeB & gripper_away_from_cubeA
+
+    # Compose rewards
+
+    # # We either provide the stack reward or the align + dist reward
+    # rewards = torch.where(
+    #     stack_reward,
+    #     reward_settings["r_stack_scale"] * stack_reward,
+    #     reward_settings["r_dist_scale"] * dist_reward + reward_settings["r_lift_scale"] * lift_reward + reward_settings[
+    #         "r_align_scale"] * align_reward,
+    # )
 
     # Compute resets
     reset_buf = torch.where((progress_buf >= max_episode_length - 1), torch.ones_like(reset_buf), reset_buf)
