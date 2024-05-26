@@ -154,6 +154,7 @@ class CentauroDualArm(VecTask):
 
         asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../assets")
         centauro_asset_file = "urdf/centauro_urdf/urdf/centauro_sliding_upperbody.urdf"
+        box_asset_file = "urdf/dual_box.urdf"
 
         if "asset" in self.cfg["env"]:
             asset_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
@@ -183,11 +184,12 @@ class CentauroDualArm(VecTask):
         table_asset = self.gym.create_box(self.sim, *[1.2, 1.2, table_thickness], table_opts)
 
         # Create cubeA asset
-        self.cubeA_size = 0.5
+        self.cubeA_size = 0.3
         cubeA_opts = gymapi.AssetOptions()
         cubeA_opts.collapse_fixed_joints = True
-        cubeA_asset = self.gym.create_box(self.sim, *([0.5, 0.5, 0.5]), cubeA_opts)
-        cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
+        # cubeA_asset = self.gym.create_box(self.sim, *([0.3, 0.3, 0.3]), cubeA_opts)
+        cubeA_asset = self.gym.load_asset(self.sim, asset_root, box_asset_file, cubeA_opts)
+        # cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
 
         self.num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
         self.num_centauro_dofs = self.gym.get_asset_dof_count(centauro_asset)
@@ -219,7 +221,7 @@ class CentauroDualArm(VecTask):
 
         # Define start pose for centauro
         centauro_start_pose = gymapi.Transform()
-        centauro_start_pose.p = gymapi.Vec3(0.6, 0.0, 1.0 + table_thickness / 2 + 0.5)
+        centauro_start_pose.p = gymapi.Vec3(0.7, 0.0, 1.0 + table_thickness / 2 + 0.2)
         centauro_start_pose.r = gymapi.Quat(0.0, 0.0, 1.0, 0.0)
 
         # Define start pose for table
@@ -237,8 +239,10 @@ class CentauroDualArm(VecTask):
         # compute aggregate size
         num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
         num_centauro_shapes = self.gym.get_asset_rigid_shape_count(centauro_asset)
-        max_agg_bodies = num_centauro_bodies + 2     # 1 for table, cubeA
-        max_agg_shapes = num_centauro_shapes + 2     # 1 for table, cubeA
+        num_cubeA_bodies = self.gym.get_asset_rigid_body_count(cubeA_asset)
+        num_cubeA_shapes = self.gym.get_asset_rigid_shape_count(cubeA_asset)
+        max_agg_bodies = num_centauro_bodies + num_cubeA_bodies + 1     # 1 for table, 2 for cubeA
+        max_agg_shapes = num_centauro_shapes + num_cubeA_shapes + 1     # 1 for table, 2 for cubeA
 
         self.centauros = []
         self.envs = []
@@ -279,7 +283,7 @@ class CentauroDualArm(VecTask):
             # Create cubes
             self._cubeA_id = self.gym.create_actor(env_ptr, cubeA_asset, cubeA_start_pose, "cubeA", i, 0, 0)
             # Set colors
-            self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+            # self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
 
             if self.aggregate_mode > 0:
                 self.gym.end_aggregate(env_ptr)
@@ -306,7 +310,7 @@ class CentauroDualArm(VecTask):
             "grip_site": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_tcp"),
             "ball_tip": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "ball1_tip"),
             # Cubes
-            "cubeA_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeA_id, "base_link"),
+            "cubeA_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeA_id, "box"),
         }
 
 
@@ -516,9 +520,7 @@ class CentauroDualArm(VecTask):
         sampled_cube_state[:, 2] = self._table_surface_pos[2] + cube_heights.squeeze(-1)[env_ids] / 2
 
         # Initialize rotation, which is no rotation (quat w = 1)
-        # sampled_cube_state[:, 6] = 1.0
-        sampled_cube_state[:, 3] = 0.7071
-        sampled_cube_state[:, 6] = 0.7071
+        sampled_cube_state[:, 6] = 1.0
 
         # If we're verifying valid sampling, we need to check and re-sample if any are not collision-free
         # We use a simple heuristic of checking based on cubes' radius to determine if a collision would occur
@@ -621,7 +623,7 @@ class CentauroDualArm(VecTask):
 ###=========================jit functions=========================###
 #####################################################################
 
-@torch.jit.script
+# @torch.jit.script
 def compute_centauro_reward(
     reset_buf, progress_buf, actions, states, reward_settings, max_episode_length,
     gripper_forward_axis, gripper_up_axis, cube_inward_axis, cube_up_axis, num_envs

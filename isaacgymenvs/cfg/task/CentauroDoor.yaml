@@ -23,7 +23,7 @@ env:
 
   actionScale: 7.5
   distRewardScale: 2.0
-  handleRewardScale: 7.5
+  handleRewardScale: 10
   openRewardScale: 2.0
   rotRewardScale: 1.5
   aroundHandleRewardScale: 0.25
