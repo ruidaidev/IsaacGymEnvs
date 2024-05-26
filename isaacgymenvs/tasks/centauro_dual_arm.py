@@ -184,12 +184,12 @@ class CentauroDualArm(VecTask):
         table_asset = self.gym.create_box(self.sim, *[1.2, 1.2, table_thickness], table_opts)
 
         # Create cubeA asset
-        self.cubeA_size = 0.3
+        self.cubeA_size = 0.4
         cubeA_opts = gymapi.AssetOptions()
         cubeA_opts.collapse_fixed_joints = True
-        # cubeA_asset = self.gym.create_box(self.sim, *([0.3, 0.3, 0.3]), cubeA_opts)
-        cubeA_asset = self.gym.load_asset(self.sim, asset_root, box_asset_file, cubeA_opts)
-        # cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
+        cubeA_asset = self.gym.create_box(self.sim, *([0.4, 0.4, 0.4]), cubeA_opts)
+        # cubeA_asset = self.gym.load_asset(self.sim, asset_root, box_asset_file, cubeA_opts)
+        cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
 
         self.num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
         self.num_centauro_dofs = self.gym.get_asset_dof_count(centauro_asset)
@@ -283,7 +283,7 @@ class CentauroDualArm(VecTask):
             # Create cubes
             self._cubeA_id = self.gym.create_actor(env_ptr, cubeA_asset, cubeA_start_pose, "cubeA", i, 0, 0)
             # Set colors
-            # self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+            self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
 
             if self.aggregate_mode > 0:
                 self.gym.end_aggregate(env_ptr)
@@ -641,7 +641,7 @@ def compute_centauro_reward(
     dist_reward_rside = 1.0 / (1.0 + d_rside ** 2)
     dist_reward_rside = torch.where(d_rside <= 0.02, dist_reward_rside * 2, dist_reward_rside)
     dist_reward = dist_reward_lside + dist_reward_rside
-    dist_reward *= dist_reward
+    # dist_reward *= dist_reward
 
     # axis1 = tf_vector(states["eef_quat"], gripper_forward_axis)
     # axis2 = tf_vector(states["cubeA_quat"], cube_inward_axis)

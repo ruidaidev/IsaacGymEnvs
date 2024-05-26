@@ -92,13 +92,13 @@ robot_asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
 
 # initial root pose for centauro actors
 initial_pose = gymapi.Transform()
-initial_pose.p = gymapi.Vec3(0.8, 0.0, 1.0)
+initial_pose.p = gymapi.Vec3(0.6, 0.0, 1.4)
 initial_pose.r = gymapi.Quat(0.0, 0.0, 1.0, 0.0)
 
 # Create environment
 env0 = gym.create_env(sim, env_lower, env_upper, 1)
 # Create the robot instance
-# robot = gym.create_actor(env0, robot_asset, initial_pose, 'robot', 0, 0, 0)
+robot = gym.create_actor(env0, robot_asset, initial_pose, 'robot', 0, 0, 0)
 
 # Create table asset
 table_pos = [0.0, 0.0, 1.0]
@@ -110,7 +110,7 @@ table_asset = gym.create_box(sim, *[1.2, 1.2, table_thickness], table_opts)
 # Create cubeA asset
 cubeA_size = 0.050
 cubeA_opts = gymapi.AssetOptions()
-cubeA_asset = gym.create_box(sim, *([0.05, 1, 0.05]), cubeA_opts)
+cubeA_asset = gym.create_box(sim, *([0.3, 0.3, 0.3]), cubeA_opts)
 cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
 
 # Define start pose for table
@@ -124,22 +124,22 @@ cubeA_start_pose = gymapi.Transform()
 cubeA_start_pose.p = gymapi.Vec3(0.0, 0.0, 1.0 + table_thickness / 2 + cubeA_size / 2)
 cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
-# table_actor = gym.create_actor(env0, table_asset, table_start_pose, "table", 0, 1, 0)
+table_actor = gym.create_actor(env0, table_asset, table_start_pose, "table", 0, 1, 0)
 
 # Create cubes
-# _cubeA_id = gym.create_actor(env0, cubeA_asset, cubeA_start_pose, "cubeA", 0, 2, 0)
+_cubeA_id = gym.create_actor(env0, cubeA_asset, cubeA_start_pose, "cubeA", 0, 2, 0)
 # Set colors
-# gym.set_rigid_body_color(env0, _cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+gym.set_rigid_body_color(env0, _cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
 # props = gym.get_actor_rigid_body_properties(env0, _cubeA_id)
 # props[0].mass = 10.0  # Set the mass to 10 kg
 # # props[0].restitution = 0.9  # Set high restitution for high stiffness
 # # props[0].friction = 0.5  # Set friction (optional)
 # gym.set_actor_rigid_body_properties(env0, _cubeA_id, props)
 
-# shape_props = gym.get_actor_rigid_shape_properties(env0, _cubeA_id)
+shape_props = gym.get_actor_rigid_shape_properties(env0, _cubeA_id)
 # shape_props[0].restitution = 1  # Set high restitution for high stiffness
-# shape_props[0].friction = 50  # Set friction (optional)
-# gym.set_actor_rigid_shape_properties(env0, _cubeA_id, shape_props)
+shape_props[0].friction = 50  # Set friction (optional)
+gym.set_actor_rigid_shape_properties(env0, _cubeA_id, shape_props)
 
 
 
@@ -162,27 +162,27 @@ cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 # cabinet_actor = gym.create_actor(env0, cabinet_asset, cabinet_pose, "cabinet")
 # gym.set_actor_dof_properties(env0, cabinet_actor, cabinet_dof_props)
 
-# load door asset
-asset_options.flip_visual_attachments = False
-asset_options.fix_base_link = True
-asset_options.collapse_fixed_joints = True
-asset_options.disable_gravity = False
-asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
-door_asset = gym.load_asset(sim, asset_root, door_asset_file, asset_options)
-# set cabinet dof properties
-door_dof_props = gym.get_asset_dof_properties(door_asset)
-for i in range(len(door_dof_props)):
-    door_dof_props["driveMode"][i] = gymapi.DOF_MODE_POS
-    door_dof_props['damping'][i] = 10.0
-    door_dof_props['stiffness'][i] = 10.0
+# # load door asset
+# asset_options.flip_visual_attachments = False
+# asset_options.fix_base_link = True
+# asset_options.collapse_fixed_joints = True
+# asset_options.disable_gravity = False
+# asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
+# door_asset = gym.load_asset(sim, asset_root, door_asset_file, asset_options)
+# # set cabinet dof properties
+# door_dof_props = gym.get_asset_dof_properties(door_asset)
+# for i in range(len(door_dof_props)):
+#     door_dof_props["driveMode"][i] = gymapi.DOF_MODE_POS
+#     door_dof_props['damping'][i] = 10.0
+#     door_dof_props['stiffness'][i] = 10.0
 
-door_start_pose = gymapi.Transform()
-door_start_pose.p = gymapi.Vec3(*[-1, 0, 1])
-door_pose = door_start_pose
-door_actor = gym.create_actor(env0, door_asset, door_pose, "door", 0, 0, 0)
-gym.set_actor_dof_properties(env0, door_actor, door_dof_props)
-handle_hinge = gym.find_actor_dof_handle(env0, door_actor, 'handle_hinge')
-gym.set_dof_target_position(env0, handle_hinge, 0.0)
+# door_start_pose = gymapi.Transform()
+# door_start_pose.p = gymapi.Vec3(*[-1, 0, 1])
+# door_pose = door_start_pose
+# door_actor = gym.create_actor(env0, door_asset, door_pose, "door", 0, 0, 0)
+# gym.set_actor_dof_properties(env0, door_actor, door_dof_props)
+# handle_hinge = gym.find_actor_dof_handle(env0, door_actor, 'handle_hinge')
+# gym.set_dof_target_position(env0, handle_hinge, 0.0)
 
 
 # # Configure DOF properties
