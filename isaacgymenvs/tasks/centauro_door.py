@@ -582,7 +582,7 @@ def compute_centauro_reward(
                                      torch.where(states["eef_rf_pos"][:, 0] > (states["door_handle_pos"][:, 0]),
                                                  (0.02 - lfinger_dist) + (0.02 - rfinger_dist), finger_dist_reward), finger_dist_reward)
     # reward for rotating handle
-    handle_reward = abs(states["door_handle_angle"].squeeze())* around_handle_reward + abs(states["door_handle_angle"].squeeze())
+    handle_reward = torch.abs(states["door_handle_angle"].squeeze())* around_handle_reward + torch.abs(states["door_handle_angle"].squeeze())
 
     # regularization on the actions (summed for each environment)
     action_penalty = torch.sum(actions ** 2, dim=-1)
