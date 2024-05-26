@@ -212,8 +212,8 @@ class CentauroDoor(VecTask):
                 centauro_dof_props['lower'][i] = 0.0
                 centauro_dof_props['upper'][i] = 0.0
             if i == 5:
-                centauro_dof_props['lower'][i] = -1.0
-                centauro_dof_props['upper'][i] = 1.0
+                centauro_dof_props['lower'][i] = -1.5
+                centauro_dof_props['upper'][i] = 1.5
             self.centauro_dof_lower_limits.append(centauro_dof_props['lower'][i])
             self.centauro_dof_upper_limits.append(centauro_dof_props['upper'][i])
             self._centauro_effort_limits.append(centauro_dof_props['effort'][i])

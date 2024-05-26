@@ -80,9 +80,9 @@ class CentauroDualArm(VecTask):
         # TODO
         # dimensions
         # obs include: cubeA_pose (7) + cubeB_pos (3) + eef_pose (7) + q_gripper (2)
-        self.cfg["env"]["numObservations"] = 28
+        self.cfg["env"]["numObservations"] = 45
         # actions include: delta EEF if OSC (6) or joint torques (7) + bool gripper (1)
-        self.cfg["env"]["numActions"] = 12
+        self.cfg["env"]["numActions"] = 18
 
         # Values to be filled in at runtime
         self.states = {}                        # will be dict filled with relevant states to use for reward calculation
