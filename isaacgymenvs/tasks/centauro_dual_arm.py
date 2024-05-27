@@ -287,13 +287,13 @@ class CentauroDualArm(VecTask):
             # Set colors
             self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
 
-            # props = self.gym.get_actor_rigid_body_properties(env_ptr, self._cubeA_id)
-            # props[0].mass = 10.0  # Set the mass to 10 kg
-            # self.gym.set_actor_rigid_body_properties(env_ptr, self._cubeA_id, props)
+            props = self.gym.get_actor_rigid_body_properties(env_ptr, self._cubeA_id)
+            props[0].mass = 1.0  # Set the mass to 10 kg
+            self.gym.set_actor_rigid_body_properties(env_ptr, self._cubeA_id, props)
 
             shape_props = self.gym.get_actor_rigid_shape_properties(env_ptr, self._cubeA_id)
             # shape_props[0].restitution = 1  # Set high restitution for high stiffness
-            shape_props[0].friction = 500  # Set friction (optional)
+            shape_props[0].friction = 1.0  # Set friction (optional)
             self.gym.set_actor_rigid_shape_properties(env_ptr, self._cubeA_id, shape_props)
 
             if self.aggregate_mode > 0:
