@@ -678,7 +678,7 @@ def compute_centauro_reward(
     #                                              (0.1 - lfinger_dist) + (0.1 - rfinger_dist), finger_dist_reward), finger_dist_reward)
     # reward for lifting cubeA
     cubeA_height = states["cubeA_pos"][:, 2] - reward_settings["table_height"]
-    cubeA_lifted = (cubeA_height - cubeA_size / 2) > 0.04
+    cubeA_lifted = (cubeA_height - cubeA_size) > 0.04
     lift_reward = cubeA_lifted
 
     # regularization on the actions (summed for each environment)
