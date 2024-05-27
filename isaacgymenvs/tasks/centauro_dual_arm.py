@@ -138,6 +138,8 @@ class CentauroDualArm(VecTask):
         self.sim_params.gravity.x = 0
         self.sim_params.gravity.y = 0
         self.sim_params.gravity.z = -9.81
+        self.sim_params.physx.num_position_iterations = 16
+        self.sim_params.physx.num_velocity_iterations = 16
         self.sim = super().create_sim(
             self.device_id, self.graphics_device_id, self.physics_engine, self.sim_params)
         self._create_ground_plane()
@@ -186,7 +188,7 @@ class CentauroDualArm(VecTask):
         # Create cubeA asset
         self.cubeA_size = 0.4
         cubeA_opts = gymapi.AssetOptions()
-        cubeA_opts.collapse_fixed_joints = True
+        # cubeA_opts.collapse_fixed_joints = True
         cubeA_asset = self.gym.create_box(self.sim, *([0.4, 0.4, 0.4]), cubeA_opts)
         # cubeA_asset = self.gym.load_asset(self.sim, asset_root, box_asset_file, cubeA_opts)
         cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
@@ -284,6 +286,11 @@ class CentauroDualArm(VecTask):
             self._cubeA_id = self.gym.create_actor(env_ptr, cubeA_asset, cubeA_start_pose, "cubeA", i, 0, 0)
             # Set colors
             self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+
+            # props = self.gym.get_actor_rigid_body_properties(env_ptr, self._cubeA_id)
+            # props[0].mass = 10.0  # Set the mass to 10 kg
+            # self.gym.set_actor_rigid_body_properties(env_ptr, self._cubeA_id, props)
+
             shape_props = self.gym.get_actor_rigid_shape_properties(env_ptr, self._cubeA_id)
             # shape_props[0].restitution = 1  # Set high restitution for high stiffness
             shape_props[0].friction = 500  # Set friction (optional)

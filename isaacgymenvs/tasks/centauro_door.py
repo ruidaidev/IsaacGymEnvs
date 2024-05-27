@@ -505,6 +505,13 @@ class CentauroDoor(VecTask):
         self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self._pos_control))
         # self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self._effort_control))
 
+        with open('centauro_door.txt', 'a') as file:
+            data = self._pos_control[0, :self.num_centauro_dofs]
+            data = data.cpu()
+            tensor_list = data.numpy().tolist()
+            tensor_str = ' '.join(map(str, tensor_list))
+            file.write(tensor_str + '\n')
+
     def post_physics_step(self):
         self.progress_buf += 1
 
