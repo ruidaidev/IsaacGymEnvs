@@ -186,10 +186,10 @@ class CentauroDualArm(VecTask):
         table_asset = self.gym.create_box(self.sim, *[1.2, 1.2, table_thickness], table_opts)
 
         # Create cubeA asset
-        self.cubeA_size = 0.4
+        self.cubeA_size = 0.3
         cubeA_opts = gymapi.AssetOptions()
         # cubeA_opts.collapse_fixed_joints = True
-        cubeA_asset = self.gym.create_box(self.sim, *([0.4, 0.4, 0.4]), cubeA_opts)
+        cubeA_asset = self.gym.create_box(self.sim, *([self.cubeA_size] * 3), cubeA_opts)
         # cubeA_asset = self.gym.load_asset(self.sim, asset_root, box_asset_file, cubeA_opts)
         cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
 
