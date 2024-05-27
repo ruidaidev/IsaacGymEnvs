@@ -293,7 +293,7 @@ class CentauroDualArm(VecTask):
 
             shape_props = self.gym.get_actor_rigid_shape_properties(env_ptr, self._cubeA_id)
             # shape_props[0].restitution = 1  # Set high restitution for high stiffness
-            shape_props[0].friction = 1.0  # Set friction (optional)
+            shape_props[0].friction = 5.0  # Set friction (optional)
             self.gym.set_actor_rigid_shape_properties(env_ptr, self._cubeA_id, shape_props)
 
             if self.aggregate_mode > 0:
@@ -678,7 +678,7 @@ def compute_centauro_reward(
     #                                              (0.1 - lfinger_dist) + (0.1 - rfinger_dist), finger_dist_reward), finger_dist_reward)
     # reward for lifting cubeA
     cubeA_height = states["cubeA_pos"][:, 2] - reward_settings["table_height"]
-    cubeA_lifted = (cubeA_height - cubeA_size) > 0.04
+    cubeA_lifted = (cubeA_height - cubeA_size / 2) > 0.04
     lift_reward = cubeA_lifted
 
     # regularization on the actions (summed for each environment)
