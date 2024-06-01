@@ -34,7 +34,7 @@ env:
 
   asset:
     assetRoot: "../../assets"
-    assetFileNameCentauro: "urdf/centauro_urdf/urdf/centauro_sliding_upperbody.urdf"
+    assetFileNameCentauro: "urdf/centauro_urdf/urdf/centauro_sliding_upperbody_large_mass.urdf"
 
   # set to True if you use camera sensors in the environment
   enableCameraSensors: False

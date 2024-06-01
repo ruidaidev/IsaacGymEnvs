@@ -42,6 +42,37 @@ from isaacgymenvs.utils.torch_jit_utils import to_torch, get_axis_params, tensor
     tf_vector, tf_combine, quat_apply
 from .base.vec_task import VecTask
 
+def rotate_pose_180_deg_around_z(pose):
+
+    x = pose[0]
+    y = pose[1]
+    z = pose[2]
+    qx = pose[3]
+    qy = pose[4]
+    qz = pose[5]
+    qw = pose[6]
+
+    x_new = -x
+    y_new = -y
+    z_new = z
+
+    q = np.array([qx, qy, qz, qw])
+
+    q_rot = np.array([0, 0, 1, 0])
+
+    qw_new = q_rot[3]*qw - q_rot[0]*qx - q_rot[1]*qy - q_rot[2]*qz
+    qx_new = q_rot[3]*qx + q_rot[0]*qw + q_rot[1]*qz - q_rot[2]*qy
+    qy_new = q_rot[3]*qy - q_rot[0]*qz + q_rot[1]*qw + q_rot[2]*qx
+    qz_new = q_rot[3]*qz + q_rot[0]*qy - q_rot[1]*qx + q_rot[2]*qw
+
+    if qw_new < 0:
+        qx_new = -qx_new
+        qy_new = -qy_new
+        qz_new = -qz_new
+        qw_new = -qw_new
+
+    return [x_new, y_new, z_new, qx_new, qy_new, qz_new, qw_new]
+
 
 class CentauroCabinet(VecTask):
 
@@ -85,9 +116,11 @@ class CentauroCabinet(VecTask):
         self.cfg["env"]["numActions"] = num_acts
 
         low = np.ones(num_acts) * -1.
+        low[1:3] = np.zeros(2)
         low[6:12] = np.zeros(6)
         low[19:21] = np.zeros(2)
         high = np.ones(num_acts) * 1.
+        high[1:3] = np.zeros(2)
         high[6:12] = np.zeros(6)
         high[19:21] = np.zeros(2)
         self.act_space = spaces.Box(low, high)
@@ -140,9 +173,11 @@ class CentauroCabinet(VecTask):
     def action_space(self):
         """Get the environment's action space."""
         low = np.ones(self.num_actions) * -1.
+        low[1:3] = np.zeros(2)
         low[6:12] = np.zeros(6)
         low[19:21] = np.zeros(2)
         high = np.ones(self.num_actions) * 1.
+        high[1:3] = np.zeros(2)
         high[6:12] = np.zeros(6)
         high[19:21] = np.zeros(2)
         self.act_space = spaces.Box(low, high)
@@ -251,7 +286,7 @@ class CentauroCabinet(VecTask):
         prop_asset = self.gym.create_box(self.sim, self.prop_width, self.prop_height, self.prop_width, box_opts)
 
         centauro_start_pose = gymapi.Transform()
-        centauro_start_pose.p = gymapi.Vec3(1.4, 0.0, 0.5)
+        centauro_start_pose.p = gymapi.Vec3(1.2, -0.5, 0.65)
         centauro_start_pose.r = gymapi.Quat(0.0, 0.0, 1.0, 0.0)
 
         cabinet_start_pose = gymapi.Transform()
@@ -345,6 +380,7 @@ class CentauroCabinet(VecTask):
             self.centauros.append(centauro_actor)
             self.cabinets.append(cabinet_actor)
 
+        self.pelvis_handle = self.gym.find_actor_rigid_body_handle(env_ptr, centauro_actor, "pelvis")
         self.hand_handle = self.gym.find_actor_rigid_body_handle(env_ptr, centauro_actor, "arm2_6")
         self.drawer_handle = self.gym.find_actor_rigid_body_handle(env_ptr, cabinet_actor, "drawer_top")
         self.lfinger_handle = self.gym.find_actor_rigid_body_handle(env_ptr, centauro_actor, "dagana_2_top_link")
@@ -389,7 +425,7 @@ class CentauroCabinet(VecTask):
 
         self.gripper_forward_axis = to_torch([0, 0, 1], device=self.device).repeat((self.num_envs, 1))
         self.drawer_inward_axis = to_torch([-1, 0, 0], device=self.device).repeat((self.num_envs, 1))
-        self.gripper_up_axis = to_torch([0, 1, 0], device=self.device).repeat((self.num_envs, 1))
+        self.gripper_up_axis = to_torch([0, -1, 0], device=self.device).repeat((self.num_envs, 1))
         self.drawer_up_axis = to_torch([0, 0, 1], device=self.device).repeat((self.num_envs, 1))
 
         self.centauro_grasp_pos = torch.zeros_like(self.centauro_local_grasp_pos)
@@ -410,7 +446,7 @@ class CentauroCabinet(VecTask):
             self.centauro_lfinger_pos, self.centauro_rfinger_pos,
             self.gripper_forward_axis, self.drawer_inward_axis, self.gripper_up_axis, self.drawer_up_axis,
             self.num_envs, self.dist_reward_scale, self.rot_reward_scale, self.around_handle_reward_scale, self.open_reward_scale,
-            self.finger_dist_reward_scale, self.action_penalty_scale, self.distX_offset, self.max_episode_length
+            self.finger_dist_reward_scale, self.action_penalty_scale, self.distX_offset, self.max_episode_length, self.centauro_dof_pos
         )
 
     def compute_observations(self):
@@ -454,8 +490,11 @@ class CentauroCabinet(VecTask):
         env_ids_int32 = env_ids.to(dtype=torch.int32)
 
         # reset centauro
+        # pos = tensor_clamp(
+        #     self.centauro_default_dof_pos.unsqueeze(0) + 0.25 * (torch.rand((len(env_ids), self.num_centauro_dofs), device=self.device) - 0.5),
+        #     self.centauro_dof_lower_limits, self.centauro_dof_upper_limits)
         pos = tensor_clamp(
-            self.centauro_default_dof_pos.unsqueeze(0) + 0.25 * (torch.rand((len(env_ids), self.num_centauro_dofs), device=self.device) - 0.5),
+            self.centauro_default_dof_pos.unsqueeze(0),
             self.centauro_dof_lower_limits, self.centauro_dof_upper_limits)
         self.centauro_dof_pos[env_ids, :] = pos
         self.centauro_dof_vel[env_ids, :] = torch.zeros_like(self.centauro_dof_vel[env_ids])
@@ -485,7 +524,7 @@ class CentauroCabinet(VecTask):
         self.reset_buf[env_ids] = 0
 
     def pre_physics_step(self, actions):
-        print("actions:", actions[0])
+        # print("actions:", actions[0])
         self.actions = actions.clone().to(self.device)
         targets = self.centauro_dof_targets[:, :self.num_centauro_dofs] + self.centauro_dof_speed_scales * self.dt * self.actions * self.action_scale
         # targets = to_torch([0.5, 0.0, 0.0, 
@@ -498,14 +537,6 @@ class CentauroCabinet(VecTask):
         env_ids_int32 = torch.arange(self.num_envs, dtype=torch.int32, device=self.device)
         self.gym.set_dof_position_target_tensor(self.sim,
                                                 gymtorch.unwrap_tensor(self.centauro_dof_targets))
-        
-        with open('output.txt', 'a') as file:
-            data = self.centauro_dof_targets[0, :self.num_centauro_dofs]
-            data = data.cpu()
-            tensor_list = data.numpy().tolist()
-            tensor_str = ' '.join(map(str, tensor_list))
-            file.write(tensor_str + '\n')
-
 
     def post_physics_step(self):
         self.progress_buf += 1
@@ -514,8 +545,24 @@ class CentauroCabinet(VecTask):
         if len(env_ids) > 0:
             self.reset_idx(env_ids)
 
+        pelivs_pose = self.rigid_body_states[0, self.pelvis_handle, 0:7]
+        pelivs_pose = pelivs_pose.cpu()
+        tensor_list_pelvis = pelivs_pose.numpy().tolist()
+        tensor_list_pelvis[0] = tensor_list_pelvis[0] - 1.2
+        tensor_list_pelvis[1] = tensor_list_pelvis[1] + 0.4
+        tensor_list_pelvis = rotate_pose_180_deg_around_z(tensor_list_pelvis)
+        with open('centauro_cabinet.txt', 'a') as file:
+            
+            data_dof = self.centauro_dof_pos[0, 5:]
+            data_dof = data_dof.cpu()
+            tensor_list_dof = data_dof.numpy().tolist()
+            # tensor_list.insert(2, 0.0)
+            tensor_list = tensor_list_pelvis + tensor_list_dof
+            tensor_str = ' '.join(map(str, tensor_list))
+            file.write(tensor_str + '\n')
+
         self.compute_observations()
-        print("obs:", self.obs_buf[0])
+        # print("obs:", self.obs_buf[0])
         self.compute_reward(self.actions)
 
         # debug viz
@@ -542,38 +589,38 @@ class CentauroCabinet(VecTask):
                 # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
                 # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
 
-                px = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
-                py = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
-                pz = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
+                # px = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
+                # py = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
+                # pz = (self.centauro_lfinger_pos[i] + quat_apply(self.centauro_lfinger_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
 
-                p0 = self.centauro_lfinger_pos[i].cpu().numpy()
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [1, 0, 0])
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
+                # p0 = self.centauro_lfinger_pos[i].cpu().numpy()
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [1, 0, 0])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
 
-                px = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
-                py = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
-                pz = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
+                # px = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
+                # py = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
+                # pz = (self.centauro_rfinger_pos[i] + quat_apply(self.centauro_rfinger_rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
 
-                p0 = self.centauro_rfinger_pos[i].cpu().numpy()
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [1, 0, 0])
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
-                self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
+                # p0 = self.centauro_rfinger_pos[i].cpu().numpy()
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], px[0], px[1], px[2]], [1, 0, 0])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], py[0], py[1], py[2]], [0, 1, 0])
+                # self.gym.add_lines(self.viewer, self.envs[i], 1, [p0[0], p0[1], p0[2], pz[0], pz[1], pz[2]], [0, 0, 1])
 
 #####################################################################
 ###=========================jit functions=========================###
 #####################################################################
 
-@torch.jit.script
+# @torch.jit.script
 def compute_centauro_reward(
     reset_buf, progress_buf, actions, cabinet_dof_pos,
     centauro_grasp_pos, drawer_grasp_pos, centauro_grasp_rot, drawer_grasp_rot,
     centauro_lfinger_pos, centauro_rfinger_pos,
     gripper_forward_axis, drawer_inward_axis, gripper_up_axis, drawer_up_axis,
     num_envs, dist_reward_scale, rot_reward_scale, around_handle_reward_scale, open_reward_scale,
-    finger_dist_reward_scale, action_penalty_scale, distX_offset, max_episode_length
+    finger_dist_reward_scale, action_penalty_scale, distX_offset, max_episode_length, centauro_dof_pos
 ):
-    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, int, float, float, float, float, float, float, float, float) -> Tuple[Tensor, Tensor]
+    # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, int, float, float, float, float, float, float, float, float, Tensor) -> Tuple[Tensor, Tensor]
 
     # distance from hand to the drawer
     d = torch.norm(centauro_grasp_pos - drawer_grasp_pos, p=2, dim=-1)
@@ -607,6 +654,9 @@ def compute_centauro_reward(
     # regularization on the actions (summed for each environment)
     action_penalty = torch.sum(actions ** 2, dim=-1)
 
+    # yaw_reward = torch.zeros_like(rot_reward)
+    # yaw_reward = torch.where(centauro_dof_pos[:, 5] < 0, yaw_reward + 1, yaw_reward)
+
     # how far the cabinet has been opened out
     open_reward = cabinet_dof_pos[:, 3] * around_handle_reward + cabinet_dof_pos[:, 3]  # drawer_top_joint
 
@@ -626,7 +676,7 @@ def compute_centauro_reward(
     #                       torch.ones_like(rewards) * -1, rewards)
     
     # reset if drawer is open or max length reached
-    reset_buf = torch.where(cabinet_dof_pos[:, 3] > 0.39, torch.ones_like(reset_buf), reset_buf)
+    # reset_buf = torch.where(cabinet_dof_pos[:, 3] > 0.39, torch.ones_like(reset_buf), reset_buf)
     reset_buf = torch.where(progress_buf >= max_episode_length - 1, torch.ones_like(reset_buf), reset_buf)
 
     return rewards, reset_buf

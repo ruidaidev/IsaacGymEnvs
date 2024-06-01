@@ -29,7 +29,7 @@
   <link name="pelvis">
     <inertial>
       <origin xyz="0.010310423 0.0034907373000000004 0.057233845000000005"/>
-      <mass value="1800.845851"/>
+      <mass value="180.845851"/>
       <inertia ixx="87.62753299999999" ixy="2.2209997" ixz="-0.61989843" iyy="163.29654999999998" iyz="0.4551487199999999" izz="196.11303"/>
     </inertial>
     <visual>
@@ -56,7 +56,7 @@
     <child link="intermediate_link"/>
     <origin rpy="0 0 0" xyz="0 0 0"/>
     <axis xyz="1 0 0"/>  <!-- Roll around x-axis -->
-    <limit lower="-0.2" upper="0.2" effort="10000" velocity="0.5"/>
+    <limit lower="-0.1" upper="0.1" effort="10000" velocity="0.5"/>
   </joint>
   <!-- Intermediate link with zero dimensions -->
   <link name="intermediate_link">
@@ -77,7 +77,7 @@
       <child link="pelvis"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>  <!-- No offset needed -->
       <axis xyz="0 1 0"/>  <!-- Pitch around y-axis -->
-      <limit lower="-0.2" upper="0.2" effort="10000" velocity="0.5"/>
+      <limit lower="-0.1" upper="0.1" effort="10000" velocity="0.5"/>
   </joint>
   <!-- torso links -->
   <link name="torso_2">
@@ -962,7 +962,7 @@
     <origin xyz="0 0 0"/>
     <axis xyz="1 0 0"/> <!-- Movement allowed along the x-axis -->
     <!-- Optionally, add limits to the joint's motion -->
-    <limit lower="-0.5" upper="0.5" effort="10000" velocity="1"/>
+    <limit lower="-0.5" upper="0.1" effort="10000" velocity="1"/>
   </joint>
 
   <!-- Define a link that connects to the second joint -->
@@ -989,7 +989,7 @@
     <child link="base_link"/>
     <origin xyz="0 0 0"/>
     <axis xyz="0 0 1"/> <!-- Movement allowed along the y-axis -->
-    <limit lower="0" upper="0.5" effort="10000" velocity="1"/>
+    <limit lower="0" upper="1.0" effort="10000" velocity="1"/>
   </joint>
 
 </robot>

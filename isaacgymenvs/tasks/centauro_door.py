@@ -15,6 +15,37 @@ from isaacgym import gymapi
 from isaacgymenvs.utils.torch_jit_utils import quat_mul, to_torch, tensor_clamp, quat_apply, tf_vector
 from isaacgymenvs.tasks.base.vec_task import VecTask
 
+def rotate_pose_180_deg_around_z(pose):
+
+    x = pose[0]
+    y = pose[1]
+    z = pose[2]
+    qx = pose[3]
+    qy = pose[4]
+    qz = pose[5]
+    qw = pose[6]
+
+    x_new = -x
+    y_new = -y
+    z_new = z
+
+    q = np.array([qx, qy, qz, qw])
+
+    q_rot = np.array([0, 0, 1, 0])
+
+    qw_new = q_rot[3]*qw - q_rot[0]*qx - q_rot[1]*qy - q_rot[2]*qz
+    qx_new = q_rot[3]*qx + q_rot[0]*qw + q_rot[1]*qz - q_rot[2]*qy
+    qy_new = q_rot[3]*qy - q_rot[0]*qz + q_rot[1]*qw + q_rot[2]*qx
+    qz_new = q_rot[3]*qz + q_rot[0]*qy - q_rot[1]*qx + q_rot[2]*qw
+
+    if qw_new < 0:
+        qx_new = -qx_new
+        qy_new = -qy_new
+        qz_new = -qz_new
+        qw_new = -qw_new
+
+    return [x_new, y_new, z_new, qx_new, qy_new, qz_new, qw_new]
+
 @torch.jit.script
 def axisangle2quat(vec, eps=1e-6):
     """
@@ -273,6 +304,14 @@ class CentauroDoor(VecTask):
             centauro_actor = self.gym.create_actor(env_ptr, centauro_asset, centauro_start_pose, "centauro", i, 0, 0)
             self.gym.set_actor_dof_properties(env_ptr, centauro_actor, centauro_dof_props)
 
+            # set color
+            num_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
+            for body_idx in range(31):
+                if body_idx == 10 or body_idx == 16 or body_idx == 14 or body_idx == 19 or body_idx == 23 or body_idx == 25 or body_idx == 28 or body_idx == 9:
+                    self.gym.set_rigid_body_color(env_ptr, centauro_actor, body_idx, gymapi.MESH_VISUAL_AND_COLLISION, gymapi.Vec3(0.116, 0.112, 0.108))
+                else:
+                    self.gym.set_rigid_body_color(env_ptr, centauro_actor, body_idx, gymapi.MESH_VISUAL_AND_COLLISION, gymapi.Vec3(0.695, 0.368, 0.086))
+
             if self.aggregate_mode == 2:
                 self.gym.begin_aggregate(env_ptr, max_agg_bodies, max_agg_shapes, True)
 
@@ -307,6 +346,7 @@ class CentauroDoor(VecTask):
             "leftfinger_tip": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_top_link"),
             "rightfinger_tip": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_bottom_link"),
             "grip_site": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_tcp"),
+            "pelvis": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "pelvis"),
             # Door
             "door_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._door_id, "door_handle"),
             "door_panel": self.gym.find_actor_rigid_body_handle(self.envs[0], self._door_id, "door_panel"),
@@ -505,19 +545,28 @@ class CentauroDoor(VecTask):
         self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self._pos_control))
         # self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self._effort_control))
 
-        with open('centauro_door.txt', 'a') as file:
-            data = self._pos_control[0, :self.num_centauro_dofs]
-            data = data.cpu()
-            tensor_list = data.numpy().tolist()
-            tensor_str = ' '.join(map(str, tensor_list))
-            file.write(tensor_str + '\n')
-
     def post_physics_step(self):
         self.progress_buf += 1
 
         env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(env_ids) > 0:
             self.reset_idx(env_ids)
+
+        pelivs_pose = self._rigid_body_state[0, self.handles["pelvis"], 0:7]
+        pelivs_pose = pelivs_pose.cpu()
+        tensor_list_pelvis = pelivs_pose.numpy().tolist()
+        tensor_list_pelvis[0] = tensor_list_pelvis[0] - 1
+        tensor_list_pelvis[2] = tensor_list_pelvis[2] - 0.2
+        tensor_list_pelvis = rotate_pose_180_deg_around_z(tensor_list_pelvis)
+        with open('centauro_door.txt', 'a') as file:
+            
+            data_dof = self._dof_state[0, 5:-2, 0]
+            data_dof = data_dof.cpu()
+            tensor_list_dof = data_dof.numpy().tolist()
+            # tensor_list.insert(2, 0.0)
+            tensor_list = tensor_list_pelvis + tensor_list_dof
+            tensor_str = ' '.join(map(str, tensor_list))
+            file.write(tensor_str + '\n')
 
         self.compute_observations()
         self.compute_reward(self.actions)

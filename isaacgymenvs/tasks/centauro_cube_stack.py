@@ -200,27 +200,27 @@ class CentauroCubeStack(VecTask):
                                          80, 80, 80, 80, 80, 80, 80, 80], dtype=torch.float, device=self.device)
 
         # Create table asset
-        table_pos = [0.0, 0.0, 1.0]
+        table_pos = [0.0, 0.0, 0.55]
         table_thickness = 0.05
         table_opts = gymapi.AssetOptions()
         table_opts.fix_base_link = True
-        table_asset = self.gym.create_box(self.sim, *[1.2, 1.2, table_thickness], table_opts)
+        table_asset = self.gym.create_box(self.sim, *[0.6, 0.6, table_thickness], table_opts)
 
-        # Create table stand asset
-        table_stand_height = 0.1
-        table_stand_pos = [-0.5, 0.0, 1.0 + table_thickness / 2 + table_stand_height / 2]
-        table_stand_opts = gymapi.AssetOptions()
-        table_stand_opts.fix_base_link = True
-        table_stand_asset = self.gym.create_box(self.sim, *[0.2, 0.2, table_stand_height], table_opts)
+        # # Create table stand asset
+        # table_stand_height = 0.1
+        # table_stand_pos = [-0.5, 0.0, 1.0 + table_thickness / 2 + table_stand_height / 2]
+        # table_stand_opts = gymapi.AssetOptions()
+        # table_stand_opts.fix_base_link = True
+        # table_stand_asset = self.gym.create_box(self.sim, *[0.2, 0.2, table_stand_height], table_opts)
 
         # Create cubeA asset
-        self.cubeA_size = 0.1
+        self.cubeA_size = 0.05
         self.cubeB_size = 0.070
         cubeA_opts = gymapi.AssetOptions()
         cubeA_opts.collapse_fixed_joints = True
-        # cubeA_asset = self.gym.create_box(self.sim, *([0.05, 0.5, 0.05]), cubeA_opts)
-        cubeA_asset = self.gym.load_asset(self.sim, asset_root, drill_asset_file, cubeA_opts)
-        # cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
+        cubeA_asset = self.gym.create_box(self.sim, *([0.05, 0.05, 0.05]), cubeA_opts)
+        # cubeA_asset = self.gym.load_asset(self.sim, asset_root, drill_asset_file, cubeA_opts)
+        cubeA_color = gymapi.Vec3(0.6, 0.1, 0.0)
         # Create cubeB asset
         cubeB_opts = gymapi.AssetOptions()
         cubeB_asset = self.gym.create_box(self.sim, *([self.cubeB_size] * 3), cubeB_opts)
@@ -256,7 +256,7 @@ class CentauroCubeStack(VecTask):
 
         # Define start pose for centauro
         centauro_start_pose = gymapi.Transform()
-        centauro_start_pose.p = gymapi.Vec3(-0.6, 0.0, 1.0 + table_thickness / 2 + table_stand_height + 0.2)
+        centauro_start_pose.p = gymapi.Vec3(-0.6, 0.3, 0.8)
         centauro_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
         # Define start pose for table
@@ -266,10 +266,10 @@ class CentauroCubeStack(VecTask):
         self._table_surface_pos = np.array(table_pos) + np.array([0, 0, table_thickness / 2])
         self.reward_settings["table_height"] = self._table_surface_pos[2]
 
-        # Define start pose for table stand
-        table_stand_start_pose = gymapi.Transform()
-        table_stand_start_pose.p = gymapi.Vec3(*table_stand_pos)
-        table_stand_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+        # # Define start pose for table stand
+        # table_stand_start_pose = gymapi.Transform()
+        # table_stand_start_pose.p = gymapi.Vec3(*table_stand_pos)
+        # table_stand_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
         # Define start pose for cubes (doesn't really matter since they're get overridden during reset() anyways)
         cubeA_start_pose = gymapi.Transform()
@@ -282,8 +282,8 @@ class CentauroCubeStack(VecTask):
         # compute aggregate size
         num_centauro_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
         num_centauro_shapes = self.gym.get_asset_rigid_shape_count(centauro_asset)
-        max_agg_bodies = num_centauro_bodies + 4     # 1 for table, table stand, cubeA, cubeB
-        max_agg_shapes = num_centauro_shapes + 4     # 1 for table, table stand, cubeA, cubeB
+        max_agg_bodies = num_centauro_bodies + 2     # 1 for table, table stand, cubeA, cubeB
+        max_agg_shapes = num_centauro_shapes + 2     # 1 for table, table stand, cubeA, cubeB
 
         self.centauros = []
         self.envs = []
@@ -303,7 +303,7 @@ class CentauroCubeStack(VecTask):
             if self.centauro_position_noise > 0:
                 rand_xy = self.centauro_position_noise * (-1. + np.random.rand(2) * 2.0)
                 centauro_start_pose.p = gymapi.Vec3(-0.45 + rand_xy[0], 0.0 + rand_xy[1],
-                                                 1.0 + table_thickness / 2 + table_stand_height)               
+                                                 0.8)               
             if self.centauro_rotation_noise > 0:
                 rand_rot = torch.zeros(1, 3)
                 rand_rot[:, -1] = self.centauro_rotation_noise * (-1. + np.random.rand() * 2.0)
@@ -312,13 +312,21 @@ class CentauroCubeStack(VecTask):
             centauro_actor = self.gym.create_actor(env_ptr, centauro_asset, centauro_start_pose, "centauro", i, 0, 0)
             self.gym.set_actor_dof_properties(env_ptr, centauro_actor, centauro_dof_props)
 
+            # set color
+            num_bodies = self.gym.get_asset_rigid_body_count(centauro_asset)
+            for body_idx in range(31):
+                if body_idx == 10 or body_idx == 16 or body_idx == 14 or body_idx == 19 or body_idx == 23 or body_idx == 25 or body_idx == 28 or body_idx == 9:
+                    self.gym.set_rigid_body_color(env_ptr, centauro_actor, body_idx, gymapi.MESH_VISUAL_AND_COLLISION, gymapi.Vec3(0.116, 0.112, 0.108))
+                else:
+                    self.gym.set_rigid_body_color(env_ptr, centauro_actor, body_idx, gymapi.MESH_VISUAL_AND_COLLISION, gymapi.Vec3(0.695, 0.368, 0.086))
+
             if self.aggregate_mode == 2:
                 self.gym.begin_aggregate(env_ptr, max_agg_bodies, max_agg_shapes, True)
 
             # Create table
             table_actor = self.gym.create_actor(env_ptr, table_asset, table_start_pose, "table", i, 1, 0)
-            table_stand_actor = self.gym.create_actor(env_ptr, table_stand_asset, table_stand_start_pose, "table_stand",
-                                                      i, 1, 0)
+            # table_stand_actor = self.gym.create_actor(env_ptr, table_stand_asset, table_stand_start_pose, "table_stand",
+            #                                           i, 1, 0)
 
             if self.aggregate_mode == 1:
                 self.gym.begin_aggregate(env_ptr, max_agg_bodies, max_agg_shapes, True)
@@ -327,8 +335,17 @@ class CentauroCubeStack(VecTask):
             self._cubeA_id = self.gym.create_actor(env_ptr, cubeA_asset, cubeA_start_pose, "cubeA", i, 2, 0)
             # self._cubeB_id = self.gym.create_actor(env_ptr, cubeB_asset, cubeB_start_pose, "cubeB", i, 4, 0)
             # Set colors
-            # self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+            self.gym.set_rigid_body_color(env_ptr, self._cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
             # self.gym.set_rigid_body_color(env_ptr, self._cubeB_id, 0, gymapi.MESH_VISUAL, cubeB_color)
+
+            props = self.gym.get_actor_rigid_body_properties(env_ptr, self._cubeA_id)
+            props[0].mass = 0.01
+            self.gym.set_actor_rigid_body_properties(env_ptr, self._cubeA_id, props)
+
+            shape_props = self.gym.get_actor_rigid_shape_properties(env_ptr, self._cubeA_id)
+            # shape_props[0].restitution = 1  # Set high restitution for high stiffness
+            shape_props[0].friction = 5.0  # Set friction (optional)
+            self.gym.set_actor_rigid_shape_properties(env_ptr, self._cubeA_id, shape_props)
 
             if self.aggregate_mode > 0:
                 self.gym.end_aggregate(env_ptr)
@@ -354,6 +371,7 @@ class CentauroCubeStack(VecTask):
             "leftfinger_tip": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_top_link"),
             "rightfinger_tip": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_bottom_link"),
             "grip_site": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "dagana_2_tcp"),
+            "pelvis": self.gym.find_actor_rigid_body_handle(env_ptr, centauro_handle, "pelvis"),
             # Cubes
             "cubeA_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeA_id, "base_link"),
             # "cubeB_body_handle": self.gym.find_actor_rigid_body_handle(self.envs[0], self._cubeB_id, "box"),
@@ -415,12 +433,12 @@ class CentauroCubeStack(VecTask):
         self._gripper_control = self._pos_control[:, 18]
 
         # Initialize indices
-        self._global_indices = torch.arange(self.num_envs * 4, dtype=torch.int32,
+        self._global_indices = torch.arange(self.num_envs * 3, dtype=torch.int32,
                                            device=self.device).view(self.num_envs, -1)
         
         self.gripper_forward_axis = to_torch([0, 0, 1], device=self.device).repeat((self.num_envs, 1))
         self.gripper_up_axis = to_torch([0, 1, 0], device=self.device).repeat((self.num_envs, 1))
-        self.cube_inward_axis = to_torch([0, -1, 0], device=self.device).repeat((self.num_envs, 1))
+        self.cube_inward_axis = to_torch([0, 0, -1], device=self.device).repeat((self.num_envs, 1))
         self.cube_up_axis = to_torch([-1, 0, 0], device=self.device).repeat((self.num_envs, 1))
         
     def _update_states(self):
@@ -577,9 +595,9 @@ class CentauroCubeStack(VecTask):
         sampled_cube_state[:, 2] = self._table_surface_pos[2] + cube_heights.squeeze(-1)[env_ids] / 2
 
         # Initialize rotation, which is no rotation (quat w = 1)
-        # sampled_cube_state[:, 6] = 1.0
-        sampled_cube_state[:, 3] = 0.7071
-        sampled_cube_state[:, 6] = 0.7071
+        sampled_cube_state[:, 6] = 1.0
+        # sampled_cube_state[:, 3] = 0.7071
+        # sampled_cube_state[:, 6] = 0.7071
 
         # If we're verifying valid sampling, we need to check and re-sample if any are not collision-free
         # We use a simple heuristic of checking based on cubes' radius to determine if a collision would occur
@@ -627,19 +645,23 @@ class CentauroCubeStack(VecTask):
         # print(u_arm, u_gripper)
         # print(self.cmd_limit, self.action_scale)
 
-        # Control arm (scale value first)
-        # u_arm = u_arm * self.cmd_limit / self.action_scale
-        targets = self._q[:, :-1] + self.dt * u_arm * self.action_scale
-        targets = tensor_clamp(targets, self.centauro_dof_lower_limits[12:18], self.centauro_dof_upper_limits[12:18])
-        self._arm_control[:, :] = targets
+        # # Control arm (scale value first)
+        # # u_arm = u_arm * self.cmd_limit / self.action_scale
+        # targets = self._q[:, :-1] + self.dt * u_arm * self.action_scale
+        # targets = tensor_clamp(targets, self.centauro_dof_lower_limits[12:18], self.centauro_dof_upper_limits[12:18])
+        # self._arm_control[:, :] = targets
 
-        # Control gripper
-        u_fingers = torch.zeros_like(self._gripper_control)
-        u_fingers[:] = torch.where(u_gripper >= 0.0, self.centauro_dof_upper_limits[-3].item(), 
-                                   self.centauro_dof_lower_limits[-3].item())
-        # Write gripper command to appropriate tensor buffer
-        self._gripper_control[:] = u_fingers
+        # # Control gripper
+        # u_fingers = torch.zeros_like(self._gripper_control)
+        # u_fingers[:] = torch.where(u_gripper >= 0.0, self.centauro_dof_upper_limits[-3].item(), 
+        #                            self.centauro_dof_lower_limits[-3].item())
+        # # Write gripper command to appropriate tensor buffer
+        # self._gripper_control[:] = u_fingers
 
+
+        targets = self._q[:, :] + self.dt * self.actions * self.action_scale
+        targets = tensor_clamp(targets, self.centauro_dof_lower_limits[12:19], self.centauro_dof_upper_limits[12:19])
+        self._pos_control[:, 12:19] = targets
         # Deploy actions
         self.gym.set_dof_position_target_tensor(self.sim, gymtorch.unwrap_tensor(self._pos_control))
         # self.gym.set_dof_actuation_force_tensor(self.sim, gymtorch.unwrap_tensor(self._effort_control))
@@ -650,6 +672,20 @@ class CentauroCubeStack(VecTask):
         env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(env_ids) > 0:
             self.reset_idx(env_ids)
+
+        pelivs_pose = self._rigid_body_state[0, self.handles["pelvis"], 0:7]
+        pelivs_pose = pelivs_pose.cpu()
+        tensor_list_pelvis = pelivs_pose.numpy().tolist()
+        tensor_list_pelvis[0] = tensor_list_pelvis[0] + 0.6
+        tensor_list_pelvis[2] = tensor_list_pelvis[2] - 0.3
+        # tensor_list_pelvis = rotate_pose_180_deg_around_z(tensor_list_pelvis)
+        with open('centauro_pick.txt', 'a') as file:
+            data_dof = self._dof_state[-1, 5:, 0]
+            data_dof = data_dof.cpu()
+            tensor_list_dof = data_dof.numpy().tolist()
+            tensor_list = tensor_list_pelvis + tensor_list_dof
+            tensor_str = ' '.join(map(str, tensor_list))
+            file.write(tensor_str + '\n')
 
         self.compute_observations()
         self.compute_reward(self.actions)
@@ -673,7 +709,7 @@ class CentauroCubeStack(VecTask):
 
             # Plot visualizations
             for i in range(self.num_envs):
-                for pos, rot in zip((eef_pos, eef_lf_pos, eef_rf_pos, cubeA_pos), (eef_rot, eef_lf_rot, eef_rf_rot, cubeA_rot)):
+                for pos, rot in zip((eef_pos, cubeA_pos), (eef_rot, cubeA_rot)):
                     px = (pos[i] + quat_apply(rot[i], to_torch([1, 0, 0], device=self.device) * 0.2)).cpu().numpy()
                     py = (pos[i] + quat_apply(rot[i], to_torch([0, 1, 0], device=self.device) * 0.2)).cpu().numpy()
                     pz = (pos[i] + quat_apply(rot[i], to_torch([0, 0, 1], device=self.device) * 0.2)).cpu().numpy()
@@ -687,7 +723,7 @@ class CentauroCubeStack(VecTask):
 ###=========================jit functions=========================###
 #####################################################################
 
-@torch.jit.script
+# @torch.jit.script
 def compute_centauro_reward(
     reset_buf, progress_buf, actions, states, reward_settings, max_episode_length,
     gripper_forward_axis, gripper_up_axis, cube_inward_axis, cube_up_axis, num_envs
@@ -695,9 +731,9 @@ def compute_centauro_reward(
     # type: (Tensor, Tensor, Tensor, Dict[str, Tensor], Dict[str, float], float, Tensor, Tensor, Tensor, Tensor, int) -> Tuple[Tensor, Tensor]
 
     # Compute per-env physical parameters
-    target_height = states["cubeB_size"] + states["cubeA_size"] / 2.0
+    # target_height = states["cubeB_size"] + states["cubeA_size"] / 2.0
     cubeA_size = states["cubeA_size"]
-    cubeB_size = states["cubeB_size"]
+    # cubeB_size = states["cubeB_size"]
 
     # distance from hand to the cubeA
     d = torch.norm(states["cubeA_pos_relative"], dim=-1)
@@ -726,19 +762,19 @@ def compute_centauro_reward(
 
     # bonus if right finger is right to the cube handle and left to the lef
     around_handle_reward = torch.zeros_like(rot_reward)
-    around_handle_reward = torch.where(states["eef_lf_pos"][:, 0] > (states["cubeA_pos"][:, 0]),
-                                       torch.where(states["eef_rf_pos"][:, 0] < (states["cubeA_pos"][:, 0]),
+    around_handle_reward = torch.where(states["eef_lf_pos"][:, 0] < (states["cubeA_pos"][:, 0] - cubeA_size / 2),
+                                       torch.where(states["eef_rf_pos"][:, 0] > (states["cubeA_pos"][:, 0] + cubeA_size / 2),
                                                    around_handle_reward + 0.5, around_handle_reward), around_handle_reward)
     # reward for distance of each finger from the cube
     finger_dist_reward = torch.zeros_like(rot_reward)
-    lfinger_dist = torch.abs(states["eef_lf_pos"][:, 0] - (states["cubeA_pos"][:, 0]))
-    rfinger_dist = torch.abs(states["eef_rf_pos"][:, 0] - (states["cubeA_pos"][:, 0]))
-    finger_dist_reward = torch.where(states["eef_lf_pos"][:, 0] > (states["cubeA_pos"][:, 0]),
-                                     torch.where(states["eef_rf_pos"][:, 0] < (states["cubeA_pos"][:, 0]),
+    lfinger_dist = torch.abs(states["eef_lf_pos"][:, 0] - (states["cubeA_pos"][:, 0] - cubeA_size / 2))
+    rfinger_dist = torch.abs(states["eef_rf_pos"][:, 0] - (states["cubeA_pos"][:, 0] + cubeA_size / 2))
+    finger_dist_reward = torch.where(states["eef_lf_pos"][:, 0] < (states["cubeA_pos"][:, 0] - cubeA_size / 2),
+                                     torch.where(states["eef_rf_pos"][:, 0] > (states["cubeA_pos"][:, 0] + cubeA_size / 2),
                                                  (0.1 - lfinger_dist) + (0.1 - rfinger_dist), finger_dist_reward), finger_dist_reward)
     # reward for lifting cubeA
     cubeA_height = states["cubeA_pos"][:, 2] - reward_settings["table_height"]
-    cubeA_lifted = (cubeA_height - cubeA_size) > 0.04
+    cubeA_lifted = (cubeA_height - cubeA_size) > 0.01
     lift_reward = cubeA_lifted
 
     # regularization on the actions (summed for each environment)

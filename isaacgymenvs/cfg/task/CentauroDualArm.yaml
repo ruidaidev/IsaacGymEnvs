@@ -6,7 +6,7 @@ physics_engine: ${..physics_engine}
 # if given, will override the device setting in gym. 
 env:
   numEnvs: ${resolve_default:8192,${...num_envs}}
-  envSpacing: 2.0
+  envSpacing: 1.5
   episodeLength: 500
   enableDebugVis: False
 
@@ -35,7 +35,7 @@ env:
 
   asset:
     assetRoot: "../../assets"
-    assetFileNameCentauro: "urdf/centauro_urdf/urdf/centauro_sliding_upperbody.urdf"
+    assetFileNameCentauro: "urdf/centauro_urdf/urdf/centauro_sliding_upperbody_large_mass.urdf"
 
   # set to True if you use camera sensors in the environment
   enableCameraSensors: False

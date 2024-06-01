@@ -124,20 +124,20 @@ cubeA_start_pose = gymapi.Transform()
 cubeA_start_pose.p = gymapi.Vec3(0.0, 0.0, 1.0 + table_thickness / 2 + cubeA_size / 2)
 cubeA_start_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
-table_actor = gym.create_actor(env0, table_asset, table_start_pose, "table", 0, 1, 0)
+# table_actor = gym.create_actor(env0, table_asset, table_start_pose, "table", 0, 1, 0)
 
-# Create cubes
-_cubeA_id = gym.create_actor(env0, cubeA_asset, cubeA_start_pose, "cubeA", 0, 2, 0)
-# Set colors
-gym.set_rigid_body_color(env0, _cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
-props = gym.get_actor_rigid_body_properties(env0, _cubeA_id)
-props[0].mass = 1.0  # Set the mass to 10 kg
-gym.set_actor_rigid_body_properties(env0, _cubeA_id, props)
+# # Create cubes
+# _cubeA_id = gym.create_actor(env0, cubeA_asset, cubeA_start_pose, "cubeA", 0, 2, 0)
+# # Set colors
+# gym.set_rigid_body_color(env0, _cubeA_id, 0, gymapi.MESH_VISUAL, cubeA_color)
+# props = gym.get_actor_rigid_body_properties(env0, _cubeA_id)
+# props[0].mass = 1.0  # Set the mass to 10 kg
+# gym.set_actor_rigid_body_properties(env0, _cubeA_id, props)
 
-shape_props = gym.get_actor_rigid_shape_properties(env0, _cubeA_id)
-# shape_props[0].restitution = 1  # Set high restitution for high stiffness
-shape_props[0].friction = 1  # Set friction (optional)
-gym.set_actor_rigid_shape_properties(env0, _cubeA_id, shape_props)
+# shape_props = gym.get_actor_rigid_shape_properties(env0, _cubeA_id)
+# # shape_props[0].restitution = 1  # Set high restitution for high stiffness
+# shape_props[0].friction = 1  # Set friction (optional)
+# gym.set_actor_rigid_shape_properties(env0, _cubeA_id, shape_props)
 
 
 
